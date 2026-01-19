@@ -25,7 +25,6 @@ export function AIAnalyst({ dataContext }: AIAnalystProps) {
     setError('');
     setResponse('');
 
-    // Se dataContext estiver vazio, mostre um erro claro.
     if (!dataContext || dataContext.length === 0) {
       setError("Não há nenhum registro no banco de dados para analisar.");
       setIsLoading(false);
@@ -35,25 +34,28 @@ export function AIAnalyst({ dataContext }: AIAnalystProps) {
     try {
       const res = await fetch('/api/analyze-data', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // CORREÇÃO: Removido o JSON.stringify() duplicado.
-        body: JSON.stringify({
-          message,
-          dataContext: dataContext,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, dataContext }),
       });
 
+      // Tratamento de erro robusto
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+        try {
+          // Tenta extrair um erro JSON do servidor
+          const errorData = await res.json();
+          throw new Error(errorData.error || `Erro do servidor: ${res.statusText}`);
+        } catch (jsonError) {
+          // Se o corpo da resposta não for um JSON válido, mostra o texto bruto
+          const errorText = await res.text();
+          throw new Error(`O servidor retornou uma resposta inesperada (Status: ${res.status}). Detalhes: ${errorText.slice(0, 300)}...`);
+        }
       }
 
       const data = await res.json();
       setResponse(data.response);
+
     } catch (err: any) {
-      console.error('Failed to get AI response:', err);
+      console.error('Falha ao obter resposta da IA:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -70,7 +72,6 @@ export function AIAnalyst({ dataContext }: AIAnalystProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
-          {/* Texto do placeholder atualizado */}
           <Input
             type="text"
             placeholder="Pergunte sobre todos os registros..."
@@ -103,7 +104,6 @@ export function AIAnalyst({ dataContext }: AIAnalystProps) {
             </div>
         )}
 
-        {/* Texto informativo atualizado */}
         {!isLoading && !response && !error && (
             <div className="text-center text-sm text-muted-foreground mt-4">
                 <p>Faça uma pergunta para iniciar a análise de <strong>todos os {dataContext.length}</strong> registros do banco de dados.</p>

@@ -38,15 +38,12 @@ export function AIAnalyst({ dataContext }: AIAnalystProps) {
         body: JSON.stringify({ message, dataContext }),
       });
 
-      // Tratamento de erro robusto
       if (!res.ok) {
+        const errorText = await res.text();
         try {
-          // Tenta extrair um erro JSON do servidor
-          const errorData = await res.json();
-          throw new Error(errorData.error || `Erro do servidor: ${res.statusText}`);
-        } catch (jsonError) {
-          // Se o corpo da resposta não for um JSON válido, mostra o texto bruto
-          const errorText = await res.text();
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || `O servidor retornou um erro (Status: ${res.status}) mas sem uma mensagem específica.`);
+        } catch (jsonParseError) {
           throw new Error(`O servidor retornou uma resposta inesperada (Status: ${res.status}). Detalhes: ${errorText.slice(0, 300)}...`);
         }
       }

@@ -86,43 +86,53 @@ interface WeighingEntry {
 }
 function calculateSpecificDifferences(entry: WeighingEntry) {
   const differences: {
-    pair: string
-    pontaMarDiff: string
-    meioDiff: string
-    pontaTerraDiff: string
-  }[] = []
-  const balancas = entry.balancas
+    pair: string;
+    pontaMarDiff: string;
+    meioDiff: string;
+    pontaTerraDiff: string;
+  }[] = [];
+  const balancas = entry.balancas;
 
-  if (!balancas) {
-    return differences
+  // CORREÇÃO:
+  // Converte os tipos de veículo para minúsculas antes de comparar.
+  // Garante que a comparação funcione independentemente de como o dado foi salvo.
+  if (
+    !balancas ||
+    ((entry.tipoVeiculo?.toLowerCase() ?? "") !== 'vagao' &&
+     (entry.tipoVeiculo2?.toLowerCase() ?? "") !== 'vagao')
+  ) {
+    return differences;
   }
 
   const pairs = [
-    ["10", "5"],
-    ["10", "9"],
-    ["10", "1"],
-  ]
+    ['10', '5'],
+    ['10', '9'],
+    ['10', '1'],
+  ];
 
   pairs.forEach(([balancaA, balancaB]) => {
-    const balancaAData = balancas[balancaA]
-    const balancaBData = balancas[balancaB]
+    // Considera valores ajustados na comparação, se existirem
+    const balancaAData = balancas[balancaA]?.ajuste || balancas[balancaA];
+    const balancaBData = balancas[balancaB]?.ajuste || balancas[balancaB];
 
     if (balancaAData && balancaBData) {
-      const pontaMarDiff = Math.abs((balancaAData.pontaMar || 0) - (balancaBData.pontaMar || 0))
-      const meioDiff = Math.abs((balancaAData.meio || 0) - (balancaBData.meio || 0))
-      const pontaTerraDiff = Math.abs((balancaAData.pontaTerra || 0) - (balancaBData.pontaTerra || 0))
+      const pontaMarDiff = Math.abs((balancaAData.pontaMar || 0) - (balancaBData.pontaMar || 0));
+      const meioDiff = Math.abs((balancaAData.meio || 0) - (balancaBData.meio || 0));
+      const pontaTerraDiff = Math.abs((balancaAData.pontaTerra || 0) - (balancaBData.pontaTerra || 0));
 
       differences.push({
         pair: `${balancaA} vs ${balancaB}`,
         pontaMarDiff: pontaMarDiff.toFixed(1),
         meioDiff: meioDiff.toFixed(1),
         pontaTerraDiff: pontaTerraDiff.toFixed(1),
-      })
+      });
     }
-  })
+  });
 
-  return differences
+  return differences;
 }
+
+
 
 
 export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
@@ -386,7 +396,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
             Meio: bal.meio || 0,
             PontaTerra: bal.pontaTerra || 0,
             Diferenca: calculateDiferenca(bal),
-            Status: calculateDiferenca(bal) <= 40 ? "Confiável" : "Não Confiável",
+            Status: calculateDiferenca(bal) <= 40 ? "Confiável" : "ALERTA",
           })
         })
       } else {
@@ -528,7 +538,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
             bal.meio || 0,
             bal.pontaTerra || 0,
             diff.toFixed(1) + " kg",
-            diff <= 40 ? "Confiável" : "Não Confiável",
+            diff <= 40 ? "Confiável" : "ALERTA DIFERENÇA > 40KG",
           ])
         })
       } else {
@@ -924,7 +934,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
           <span
             className={`px-2 py-1 rounded-full text-xs ${isConfiavel ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
           >
-            {isConfiavel ? "Confiável" : "Não Confiável"}
+            {isConfiavel ? "Confiável" : "Diferença > 40kg"}
           </span>
         </td>
         {/* Célula com o botão de Ajuste */}

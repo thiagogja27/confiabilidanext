@@ -1,204 +1,179 @@
 "use client"
-
-import { useState } from "react"
-import { ref, push } from "firebase/database"
+import { useState, useEffect } from "react"
+import { ref, update } from "firebase/database"
 import { database } from "@/lib/firebase"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { WeighingEntry } from "@/lib/types" // Precisaremos criar/ajustar este arquivo de tipos
 
-interface AdjustmentModalProps {
-  open: boolean
-  onClose: () => void
+// Esta é a estrutura dos dados do ajuste que vamos salvar.
+export interface Adjustment {
+  ajustadoPor: string;
+  pontaMar: number;
+  meio: number;
+  pontaTerra: number;
+  observacoes: string;
+  dataAjuste: string;
 }
 
-const scales = [
-  { id: 1, name: "Balança 1" },
-  { id: 2, name: "Balança 2" },
-  { id: 3, name: "Balança 3" },
-  { id: 5, name: "Balança 5" },
-  { id: 6, name: "Balança 6" },
-  { id: 7, name: "Balança 7" },
-  { id: 8, name: "Balança 8" },
-  { id: 9, name: "Balança 9" },
-  { id: 10, name: "Balança 10" },
-]
+// As propriedades para o modal agora são mais específicas.
+interface AdjustmentModalProps {
+  open: boolean;
+  onClose: () => void;
+  // Recebe a entrada de pesagem completa para obter o ID
+  entry: WeighingEntry | null;
+  // Recebe o ID/nome da balança específica que está sendo ajustada
+  balancaId: string | null;
+}
 
-export function AdjustmentModal({ open, onClose }: AdjustmentModalProps) {
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().slice(0, 16),
-    assistantName: "",
-    electricianName: "",
-    selectedScale: "1",
-    pontaTerra: "",
-    meio: "",
-    pontaMar: "",
-    observations: "",
-  })
+export function AdjustmentModal({ open, onClose, entry, balancaId }: AdjustmentModalProps) {
+  const [ajustadoPor, setAjustadoPor] = useState("")
+  const [pontaMar, setPontaMar] = useState("")
+  const [meio, setMeio] = useState("")
+  const [pontaTerra, setPontaTerra] = useState("")
+  const [observacoes, setObservacoes] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async () => {
+  // Este efeito é executado quando o modal abre ou o registro muda.
+  // Ele pré-preenche o formulário se um ajuste já existir.
+  useEffect(() => {
+    if (open && entry && balancaId && entry.balancas[balancaId]?.ajuste) {
+      const existingAdjustment = entry.balancas[balancaId].ajuste!;
+      setAjustadoPor(existingAdjustment.ajustadoPor || "")
+      setPontaMar(existingAdjustment.pontaMar.toString())
+      setMeio(existingAdjustment.meio.toString())
+      setPontaTerra(existingAdjustment.pontaTerra.toString())
+      setObservacoes(existingAdjustment.observacoes || "")
+    } else {
+      // Se não houver ajuste, limpa o formulário.
+      setAjustadoPor("")
+      setPontaMar("")
+      setMeio("")
+      setPontaTerra("")
+      setObservacoes("")
+    }
+  }, [open, entry, balancaId])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!entry || !balancaId) {
+        console.error("Nenhum registro selecionado para ajuste.")
+        return;
+    }
+    
+    setIsLoading(true)
+
+    const newAdjustment: Adjustment = {
+      ajustadoPor,
+      pontaMar: Number(pontaMar) || 0,
+      meio: Number(meio) || 0,
+      pontaTerra: Number(pontaTerra) || 0,
+      observacoes,
+      dataAjuste: new Date().toISOString(),
+    }
+
     try {
-      const adjustmentData = {
-        date: formData.date,
-        assistantName: formData.assistantName,
-        electricianName: formData.electricianName,
-        scale: formData.selectedScale,
-        pontaTerra: Number.parseFloat(formData.pontaTerra) || 0,
-        meio: Number.parseFloat(formData.meio) || 0,
-        pontaMar: Number.parseFloat(formData.pontaMar) || 0,
-        observations: formData.observations,
-        timestamp: Date.now(),
-      }
+      // O caminho agora aponta diretamente para a balança específica dentro do registro específico.
+      // Corrigindo o caminho para usar entry.key em vez de entry.id
+      const adjustmentPath = `pesagens/${entry.key}/balancas/${balancaId}/ajuste`;
+      const updates = {
+        [adjustmentPath]: newAdjustment
+      };
 
-      await push(ref(database, "adjustments"), adjustmentData)
+      // Usamos `update` para definir ou sobrescrever o objeto 'ajuste'.
+      await update(ref(database), updates);
 
-      // Create notification
-      const notification = {
-        date: formData.date,
-        message: `Ajuste realizado na Balança ${formData.selectedScale} por ${formData.assistantName}`,
-        pontaTerra: adjustmentData.pontaTerra,
-        meio: adjustmentData.meio,
-        pontaMar: adjustmentData.pontaMar,
-        observations: formData.observations,
-        timestamp: Date.now(),
-      }
-
-      await push(ref(database, "dashboardNotifications"), notification)
-
-      alert("Ajuste registrado com sucesso!")
-      setFormData({
-        date: new Date().toISOString().slice(0, 16),
-        assistantName: "",
-        electricianName: "",
-        selectedScale: "1",
-        pontaTerra: "",
-        meio: "",
-        pontaMar: "",
-        observations: "",
-      })
-      onClose()
+      console.log("Ajuste salvo com sucesso!")
+      onClose(); // Fecha o modal em caso de sucesso.
     } catch (error) {
-      console.error("Erro ao registrar ajuste:", error)
-      alert("Erro ao registrar ajuste")
+      console.error("Erro ao salvar o ajuste:", error)
+    } finally {
+        setIsLoading(false);
     }
   }
+  
+  // Retorna nulo se o modal não deveria estar aberto ou se os dados estiverem faltando.
+  if (!open || !entry || !balancaId) return null;
+
+  const balancaName = `Balança ${balancaId}`;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Registro de Ajuste</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="date">Data e Hora</Label>
-            <Input
-              id="date"
-              type="datetime-local"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="assistantName">Nome do Assistente</Label>
-            <Input
-              id="assistantName"
-              value={formData.assistantName}
-              onChange={(e) => setFormData({ ...formData, assistantName: e.target.value })}
-              placeholder="Digite o nome do assistente"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="electricianName">Nome do Eletricista</Label>
-            <Input
-              id="electricianName"
-              value={formData.electricianName}
-              onChange={(e) => setFormData({ ...formData, electricianName: e.target.value })}
-              placeholder="Digite o nome do eletricista"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="selectedScale">Selecione a Balança</Label>
-            <Select
-              value={formData.selectedScale}
-              onValueChange={(value) => setFormData({ ...formData, selectedScale: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {scales.map((scale) => (
-                  <SelectItem key={scale.id} value={String(scale.id)}>
-                    {scale.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="border-t pt-4">
-            <h4 className="font-semibold mb-3">Pesos de Ajuste</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="pontaTerra">Ponta Terra (kg)</Label>
-                <Input
-                  id="pontaTerra"
-                  type="number"
-                  step="0.1"
-                  value={formData.pontaTerra}
-                  onChange={(e) => setFormData({ ...formData, pontaTerra: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="meio">Meio (kg)</Label>
-                <Input
-                  id="meio"
-                  type="number"
-                  step="0.1"
-                  value={formData.meio}
-                  onChange={(e) => setFormData({ ...formData, meio: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="pontaMar">Ponta Mar (kg)</Label>
-                <Input
-                  id="pontaMar"
-                  type="number"
-                  step="0.1"
-                  value={formData.pontaMar}
-                  onChange={(e) => setFormData({ ...formData, pontaMar: e.target.value })}
-                />
-              </div>
+      <DialogContent className="sm:max-w-lg">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Ajuste de Pesagem - {balancaName}</DialogTitle>
+            <DialogDescription>
+              Ajuste os valores de pesagem e adicione uma observação. O registro original será mantido.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="ajustadoPor" className="text-right">Ajustado por</Label>
+              <Input
+                id="ajustadoPor"
+                value={ajustadoPor}
+                onChange={(e) => setAjustadoPor(e.target.value)}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="pontaMar" className="text-right">Ponta Mar</Label>
+              <Input
+                id="pontaMar"
+                type="number"
+                value={pontaMar}
+                onChange={(e) => setPontaMar(e.target.value)}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="meio" className="text-right">Meio</Label>
+              <Input
+                id="meio"
+                type="number"
+                value={meio}
+                onChange={(e) => setMeio(e.target.value)}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="pontaTerra" className="text-right">Ponta Terra</Label>
+              <Input
+                id="pontaTerra"
+                type="number"
+                value={pontaTerra}
+                onChange={(e) => setPontaTerra(e.target.value)}
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="observacoes" className="text-right">Observações</Label>
+              <Textarea
+                id="observacoes"
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                className="col-span-3"
+                rows={3}
+              />
             </div>
           </div>
-
-          <div>
-            <Label htmlFor="observations">Observações</Label>
-            <Textarea
-              id="observations"
-              value={formData.observations}
-              onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-              placeholder="Digite observações sobre o ajuste"
-              rows={4}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={onClose}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit}>Salvar Ajuste</Button>
-          </div>
-        </div>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Salvando..." : "Salvar Ajuste"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

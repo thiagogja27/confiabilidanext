@@ -66,7 +66,7 @@ export interface DynamicScaleEntry {
  * A definição completa de um registro de pesagem, unindo todas as outras.
  */
 export interface WeighingEntry {
-  key: string; // Chave do Firebase
+  key?: string; // Chave do Firebase (opcional)
   dataHora: string;
   tipoVeiculo: string;
   tipoVeiculo2?: string;

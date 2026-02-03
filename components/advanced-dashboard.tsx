@@ -372,7 +372,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
     const checklistData: any[] = []
     const balancaDinamicaData: any[] = []
     const testeEstaticoData: any[] = []
-    const diferencasEspecificasData: any[] = [] // <--- NOVO ARRAY PARA A NOVA ABA
+    const diferencasEspecificasData: any[] = []
 
     entriesToExport.forEach((entry) => {
       const baseInfo = {
@@ -386,24 +386,41 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         Seguranca: entry.nomeSeguranca || "N/A",
       }
 
-      // 1. Coleta de dados de Pesagens (código existente)
+      // 1. Coleta de dados de Pesagens (AJUSTADO PARA INCLUIR AJUSTES)
       if (entry.balancas && Object.keys(entry.balancas).length > 0) {
         Object.entries(entry.balancas).forEach(([balancaName, bal]) => {
+          const finalValues = bal.ajuste || bal;
+          const diferenca = calculateDiferenca(bal); // Usa a nova função
+          const temAjuste = !!bal.ajuste;
+
+    
+
           pesagensData.push({
             ...baseInfo,
             Balanca: `Balança ${balancaName}`,
-            PontaMar: bal.pontaMar || 0,
-            Meio: bal.meio || 0,
-            PontaTerra: bal.pontaTerra || 0,
-            Diferenca: calculateDiferenca(bal),
-            Status: calculateDiferenca(bal) <= 40 ? "Confiável" : "ALERTA",
-          })
+            // Valores Finais (Ajustados ou Originais)
+            PontaMar_Final: finalValues.pontaMar || 0,
+            Meio_Final: finalValues.meio || 0,
+            PontaTerra_Final: finalValues.pontaTerra || 0,
+            Diferenca: diferenca,
+            Status: diferenca <= 40 ? "Confiável" : "ALERTA",
+            // Detalhes do Ajuste (CORRIGIDO)
+            Ajustado: bal.ajuste ? "Sim" : "Não",
+            DataAjuste: bal.ajuste ? (bal.ajuste.dataAjuste ? new Date(bal.ajuste.dataAjuste).toLocaleString('pt-BR') : "") : "",
+            AjustadoPor: bal.ajuste ? bal.ajuste.ajustadoPor : "",
+            ObservacoesAjuste: bal.ajuste ? bal.ajuste.observacoes : "",
+            // Valores Originais (para referência se houve ajuste)
+            PontaMar_Original: bal.ajuste ? (bal.pontaMar || 0) : "",
+            Meio_Original: bal.ajuste ? (bal.meio || 0) : "",
+            PontaTerra_Original: bal.ajuste ? (bal.pontaTerra || 0) : "",
+          });
         })
       } else {
-        pesagensData.push({ ...baseInfo, Balanca: "-", PontaMar: 0, Meio: 0, PontaTerra: 0, Diferenca: 0, Status: "-" })
+        pesagensData.push({ ...baseInfo, Balanca: "-", PontaMar_Final: 0, Meio_Final: 0, PontaTerra_Final: 0, Diferenca: 0, Status: "-" })
       }
 
-      // 2. Coleta de dados do Checklist (código existente)
+
+      // 2. Coleta de dados do Checklist (sem alteração)
       checklistData.push({
         DataHora: entry.dataHora,
         Placa: entry.placa,
@@ -417,29 +434,28 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         Observacoes: entry.checklist?.observacoes || "",
       })
       
-           // 3. Coleta de dados da Balança Dinâmica (código existente)
-           if (entry.afericaoBalancaDinamica && entry.afericaoBalancaDinamica.length > 0) {
-            entry.afericaoBalancaDinamica.forEach((vagao, index) => {
-              balancaDinamicaData.push({
-                DataHora: index === 0 ? entry.dataHora : "",
-                NumeroVagao: index + 1,
-                Prefixo: vagao.prefixo || "",
-                bitola: vagao.bitola || "",
-                PlacaVagoes: vagao.placaVagoes || "",
-                PesoOrigem: vagao.pesoOrigem || "",
-                PrimeiraPassagemR300B: vagao.primeiraPassagemR300B || "",
-                SegundaPassagemR300C: vagao.segundaPassagemR300C || "",
-                TerceiraPassagemR300B: vagao.terceiraPassagemR300B || "",
-                OrigemXPrimeira: vagao.origemXPrimeira || 0,
-                OrigemXSegunda: vagao.origemXSegunda || 0,
-                OrigemXTerceira: vagao.origemXTerceira || 0,
-              })
-            })
-            balancaDinamicaData.push({})
-          }
+      // 3. Coleta de dados da Balança Dinâmica (sem alteração)
+      if (entry.afericaoBalancaDinamica && entry.afericaoBalancaDinamica.length > 0) {
+        entry.afericaoBalancaDinamica.forEach((vagao, index) => {
+          balancaDinamicaData.push({
+            DataHora: index === 0 ? entry.dataHora : "",
+            NumeroVagao: index + 1,
+            Prefixo: vagao.prefixo || "",
+            bitola: vagao.bitola || "",
+            PlacaVagoes: vagao.placaVagoes || "",
+            PesoOrigem: vagao.pesoOrigem || "",
+            PrimeiraPassagemR300B: vagao.primeiraPassagemR300B || "",
+            SegundaPassagemR300C: vagao.segundaPassagemR300C || "",
+            TerceiraPassagemR300B: vagao.terceiraPassagemR300B || "",
+            OrigemXPrimeira: vagao.origemXPrimeira || 0,
+            OrigemXSegunda: vagao.origemXSegunda || 0,
+            OrigemXTerceira: vagao.origemXTerceira || 0,
+          })
+        })
+        balancaDinamicaData.push({})
+      }
     
-
-      // 4. Coleta de dados do Teste Estático (código adicionado anteriormente)
+      // 4. Coleta de dados do Teste Estático (sem alteração)
       if (entry.testeEstatico && Object.keys(entry.testeEstatico).length > 0) {
         Object.entries(entry.testeEstatico).forEach(([balancaName, teste]) => {
           testeEstaticoData.push({
@@ -453,9 +469,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         })
       }
 
-      // =============================================================
-      // >>> NOVO BLOCO PARA DIFERENÇAS ESPECÍFICAS <<<
-      // =============================================================
+      // 5. Coleta de dados das Diferenças Específicas (sem alteração)
       const specificDiffs = calculateSpecificDifferences(entry);
       if (specificDiffs.length > 0) {
         specificDiffs.forEach((diff) => {
@@ -471,39 +485,43 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       }
     })
 
-    // Criação do Workbook e das abas
+    // Criação do Workbook
     const wb = XLSX.utils.book_new()
 
-    // Aba 1: Pesagens
+    // Aba 1: Pesagens (LARGURA DAS COLUNAS AJUSTADA)
     const ws1 = XLSX.utils.json_to_sheet(pesagensData)
-    ws1["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 } ]
+    ws1["!cols"] = [ 
+        { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, 
+        { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
+        { wch: 10 }, { wch: 10 }, { wch: 8 },  { wch: 18 }, { wch: 20 }, { wch: 30 }, 
+        { wch: 18 }, { wch: 18 }, { wch: 18 }
+    ]
     XLSX.utils.book_append_sheet(wb, ws1, "Pesagens")
 
-    // Aba 2: Checklist
+    // Aba 2: Checklist (sem alteração)
     const ws2 = XLSX.utils.json_to_sheet(checklistData)
     ws2["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 30 } ]
     XLSX.utils.book_append_sheet(wb, ws2, "Checklist")
 
-    // Aba 3: Balança Dinâmica
+    // Aba 3: Balança Dinâmica (sem alteração)
     const ws3 = XLSX.utils.json_to_sheet(balancaDinamicaData)
     ws3["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 } ]
     XLSX.utils.book_append_sheet(wb, ws3, "Balança Dinâmica")
     
-    // Aba 4: Teste Estático
+    // Aba 4: Teste Estático (sem alteração)
     const ws4 = XLSX.utils.json_to_sheet(testeEstaticoData)
     ws4["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 12 } ]
     XLSX.utils.book_append_sheet(wb, ws4, "Teste Estático")
 
-    // =============================================================
-    // >>> NOVA ABA PARA DIFERENÇAS ESPECÍFICAS <<<
-    // =============================================================
+    // Aba 5: Diferenças Específicas (sem alteração)
     const ws5 = XLSX.utils.json_to_sheet(diferencasEspecificasData)
     ws5["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 18 }, { wch: 25 }, { wch: 22 }, { wch: 26 } ]
     XLSX.utils.book_append_sheet(wb, ws5, "Diferenças Específicas")
 
-    // Salva o arquivo final com 5 abas
+    // Salva o arquivo final
     XLSX.writeFile(wb, `confiabilidade_${new Date().toISOString().split("T")[0]}.xlsx`)
   }
+    
 
 
   const exportToPDF = () => {

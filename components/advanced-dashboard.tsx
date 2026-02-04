@@ -18,8 +18,10 @@ import { AIAnalyst } from "@/components/ai-analyst" // <-- 1. IMPORTAÇÃO ADICI
 import { Wrench } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AdjustmentModal } from "@/components/adjustment-modal";
+import { TemporalEvolutionContainer } from "./temporal-evolution-container";
 
-interface BalanceReading {
+
+export interface BalanceReading {
   pontaMar: number
   meio: number
   pontaTerra: number
@@ -68,7 +70,7 @@ interface DynamicScaleEntry {
   origemXTerceira: number
 }
 
-interface WeighingEntry {
+export interface WeighingEntry {
   key?: string
   dataHora: string
   tipoVeiculo: string
@@ -352,10 +354,15 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
   }
 
   const calculateDiferenca = (balance: BalanceReading) => {
-    const valores = [balance.pontaMar, balance.meio, balance.pontaTerra].filter((v) => v !== undefined && v !== null)
-    if (valores.length < 2) return 0
-    return Math.max(...valores) - Math.min(...valores)
-  }
+    // Usa valores ajustados se existirem, caso contrário, usa os originais.
+    const valuesToUse = balance.ajuste || balance;
+    const valores = [valuesToUse.pontaMar, valuesToUse.meio, valuesToUse.pontaTerra].filter(
+        (v): v is number => v !== undefined && v !== null && !isNaN(v)
+    );
+    if (valores.length < 2) return 0;
+    return Math.max(...valores) - Math.min(...valores);
+  };
+
 
   const getEntriesToExport = () => {
     if (selectedEntries.size > 0) {
@@ -714,7 +721,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
 
       {/* Charts Dashboard */}
       <ChartsDashboard />
-
+      <TemporalEvolutionContainer entries={entries} calculateDiferenca={calculateDiferenca} />
       {/* Filters */}
       <Card>
         <CardHeader>

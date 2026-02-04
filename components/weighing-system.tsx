@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signOut } from "firebase/auth"
 import { ref, push } from "firebase/database"
 import { auth, database } from "@/lib/firebase"
@@ -11,9 +11,15 @@ import { ScaleInputs } from "@/components/scale-inputs"
 import { StaticTest } from "@/components/static-test"
 import { AdvancedDashboard } from "@/components/advanced-dashboard"
 import { DynamicScaleInputs, type DynamicScaleEntry } from "@/components/dynamic-scale-inputs"
+import { FloatingAlert } from "@/components/floating-alert"
 
 interface WeighingSystemProps {
   user: any
+}
+
+interface Alert {
+  message: string;
+  type: 'info' | 'warning' | 'error';
 }
 
 export function WeighingSystem({ user }: WeighingSystemProps) {
@@ -26,6 +32,7 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
   const [selectedScale, setSelectedScale] = useState<string>("all")
   const [staticTestData, setStaticTestData] = useState<any>({})
   const [dynamicScaleEntries, setDynamicScaleEntries] = useState<DynamicScaleEntry[]>([])
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [formData, setFormData] = useState({
     dataHora: new Date().toISOString().slice(0, 16),
     placa: "",
@@ -35,6 +42,66 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
     turnoAssistente: "turnoA",
     nomeSeguranca: "",
   })
+
+  useEffect(() => {
+    const newAlerts: Alert[] = [];
+    const scaleEntries = Object.entries(scaleData);
+
+    // Intra-scale difference check
+    scaleEntries.forEach(([scaleNum, data]) => {
+        const { pontaMar = 0, meio = 0, pontaTerra = 0 } = data || {};
+        const values = [
+            { name: 'Ponta Mar', value: pontaMar },
+            { name: 'Meio', value: meio },
+            { name: 'Ponta Terra', value: pontaTerra }
+        ].filter(v => v.value > 0); 
+
+        if (values.length > 1) {
+            for (let i = 0; i < values.length; i++) {
+                for (let j = i + 1; j < values.length; j++) {
+                    const diff = Math.abs(values[i].value - values[j].value);
+                    if (diff > 40) { // Threshold
+                        const message = `Balança ${scaleNum}: Diferença de ${diff.toFixed(1)}kg entre ${values[i].name} e ${values[j].name}`;
+                        newAlerts.push({ message, type: 'error' });
+                    }
+                }
+            }
+        }
+    });
+
+    // Inter-scale difference check
+    const pairsToCompare = [['10', '5'], ['10', '9'], ['10', '1'], ['3', '6']];
+    pairsToCompare.forEach(([balancaA, balancaB]) => {
+        const dataA = scaleData[balancaA];
+        const dataB = scaleData[balancaB];
+
+        if (dataA && dataB) {
+            const fields = ['pontaMar', 'meio', 'pontaTerra'];
+            fields.forEach(field => {
+                const valA = dataA[field] || 0;
+                const valB = dataB[field] || 0;
+                const diff = valA - valB;
+
+                if (Math.abs(diff) > 40) { // Threshold
+                    const fieldName = field.replace('pontaMar', 'Ponta Mar').replace('pontaTerra', 'Ponta Terra');
+                    const message = `Balanças ${balancaA} e ${balancaB}: Diferença de ${Math.abs(diff).toFixed(1)}kg no ${fieldName}`;
+                    newAlerts.push({ message, type: 'error' });
+                }
+            });
+        }
+    });
+
+    setAlerts(newAlerts);
+
+    if (voiceEnabled && newAlerts.length > 0) {
+        const uniqueMessages = [...new Set(newAlerts.map(a => a.message))];
+        const utteranceText = `Atenção: ${uniqueMessages.join('. ')}`;
+        const utterance = new SpeechSynthesisUtterance(utteranceText);
+        utterance.lang = 'pt-BR';
+        speechSynthesis.speak(utterance);
+    }
+
+  }, [scaleData, voiceEnabled]);
 
   const handleLogout = async () => {
     try {
@@ -66,6 +133,7 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
       await push(ref(database, "pesagens"), pesagemData)
       alert("Dados salvos com sucesso!")
 
+      // Reset states
       setScaleData({})
       setChecklistData({})
       setStaticTestData({})
@@ -145,10 +213,9 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
             selectedScale={selectedScale}
             voiceEnabled={voiceEnabled}
           />
-
-          {/* Removed RealtimeCalculations component since it's not needed anymore */}
         </div>
       )}
+      <FloatingAlert alerts={alerts} />
     </div>
   )
 }

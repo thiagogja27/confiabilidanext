@@ -126,7 +126,7 @@ export function EditEntryModal({ entry, onClose, onSave }: EditEntryModalProps) 
       const pesoPadrao = field === "pesoPadrao" ? numValue : currentTest.pesoPadrao || 0
       const resultado = field === "resultado" ? numValue : currentTest.resultado || 0
       updatedTest.variacaoPeso = resultado - pesoPadrao
-      updatedTest.percentualVariacao =
+      updatedTest.variacaoPercentual =
         pesoPadrao !== 0 ? ((updatedTest.variacaoPeso / pesoPadrao) * 100).toFixed(2) + "%" : "0.00%"
     }
 
@@ -451,11 +451,20 @@ export function EditEntryModal({ entry, onClose, onSave }: EditEntryModalProps) 
                       </div>
                       <div>
                         <Label>Variação Peso (kg)</Label>
-                        <Input type="text" value={Number(dados.variacaoPeso || 0).toFixed(2)} disabled />
+                        <Input
+                          type="text"
+                          value={Number(dados.variacaoPeso || 0).toFixed(2)}
+                          disabled
+                          className={
+                            Math.abs(dados.variacaoPeso || 0) >= 15
+                              ? "font-bold text-red-600"
+                              : ""
+                          }
+                        />
                       </div>
                       <div>
                         <Label>Percentual Variação (%)</Label>
-                        <Input type="text" value={dados.percentualVariacao || "0.00%"} disabled />
+                        <Input type="text" value={dados.variacaoPercentual || "0.00%"} disabled />
                       </div>
                     </div>
                   </div>

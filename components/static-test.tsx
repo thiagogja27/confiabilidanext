@@ -8,36 +8,46 @@ interface StaticTestProps {
 }
 
 export function StaticTest({ data, onChange }: StaticTestProps) {
-  useEffect(() => {
-    if (!data.TEG && !data.TEAG) {
-      onChange({
-        TEG: {
-          pesoPadrao: 9010,
-          resultado: 9015,
-        },
-        TEAG: {
-          pesoPadrao: 8270,
-          resultado: 0,
-        },
-      })
-    }
-  }, [])
-
+  
   const calcVariacao = (pesoPadrao: number, resultado: number) => {
     const variacao = resultado - pesoPadrao
     const percentual = pesoPadrao !== 0 ? (variacao / pesoPadrao) * 100 : 0
     return { variacao, percentual }
   }
 
-  const tegData = data.TEG || { pesoPadrao: 9010, resultado: 9015 }
-  const teagData = data.TEAG || { pesoPadrao: 8270, resultado: 0 }
+  // Initialize data on mount if it's empty
+  useEffect(() => {
+    if (!data || Object.keys(data).length === 0) {
+      const initialTEG = { pesoPadrao: 9010, resultado: 9015 }
+      const initialTEAG = { pesoPadrao: 8270, resultado: 0 }
+      const calcTeg = calcVariacao(initialTEG.pesoPadrao, initialTEG.resultado)
+      const calcTeag = calcVariacao(initialTEAG.pesoPadrao, initialTEAG.resultado)
 
-  const teg = calcVariacao(tegData.pesoPadrao, tegData.resultado)
-  const teag = calcVariacao(teagData.pesoPadrao, teagData.resultado)
+      onChange({
+        TEG: {
+          ...initialTEG,
+          variacaoPeso: calcTeg.variacao,
+          percentualVariacao: `${calcTeg.percentual.toFixed(2)}%`,
+        },
+        TEAG: {
+          ...initialTEAG,
+          variacaoPeso: calcTeag.variacao,
+          percentualVariacao: `${calcTeag.percentual.toFixed(2)}%`,
+        },
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const updateData = (type: string, field: string, value: number) => {
-    const updatedTypeData = { ...data[type], [field]: value }
-    const calc = calcVariacao(updatedTypeData.pesoPadrao, updatedTypeData.resultado)
+    const currentData = data[type] || {}
+    const updatedTypeData = { ...currentData, [field]: value }
+    
+    const pesoPadrao = updatedTypeData.pesoPadrao || 0
+    const resultado = updatedTypeData.resultado || 0
+
+    const calc = calcVariacao(pesoPadrao, resultado)
 
     onChange({
       ...data,
@@ -48,6 +58,13 @@ export function StaticTest({ data, onChange }: StaticTestProps) {
       },
     })
   }
+
+  const tegData = data.TEG || { pesoPadrao: 0, resultado: 0, variacaoPeso: 0, percentualVariacao: '0.00%' }
+  const teagData = data.TEAG || { pesoPadrao: 0, resultado: 0, variacaoPeso: 0, percentualVariacao: '0.00%' }
+
+  // Re-calculate here to ensure consistency, though it's already in the state
+  const teg = calcVariacao(tegData.pesoPadrao, tegData.resultado)
+  const teag = calcVariacao(teagData.pesoPadrao, teagData.resultado)
 
   return (
     <div className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
@@ -71,7 +88,7 @@ export function StaticTest({ data, onChange }: StaticTestProps) {
                 <input
                   type="number"
                   className="w-full rounded border p-1"
-                  value={tegData.pesoPadrao}
+                  value={tegData.pesoPadrao || ""}
                   onChange={(e) => updateData("TEG", "pesoPadrao", Number.parseFloat(e.target.value) || 0)}
                 />
               </td>
@@ -79,12 +96,22 @@ export function StaticTest({ data, onChange }: StaticTestProps) {
                 <input
                   type="number"
                   className="w-full rounded border p-1"
-                  value={tegData.resultado}
+                  value={tegData.resultado || ""}
                   onChange={(e) => updateData("TEG", "resultado", Number.parseFloat(e.target.value) || 0)}
                 />
               </td>
-              <td className="p-3">{teg.variacao.toFixed(2)}</td>
-              <td className={`p-3 ${teg.percentual >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <td
+                className={`p-3 font-medium ${
+                  Math.abs(teg.variacao) >= 15 ? "text-red-600" : ""
+                }`}
+              >
+                {teg.variacao.toFixed(2)}
+              </td>
+              <td
+                className={`p-3 font-medium ${
+                  Math.abs(teg.percentual) >= 15 ? "text-red-600" : ""
+                }`}
+              >
                 {teg.percentual.toFixed(2)}%
               </td>
             </tr>
@@ -94,7 +121,7 @@ export function StaticTest({ data, onChange }: StaticTestProps) {
                 <input
                   type="number"
                   className="w-full rounded border p-1"
-                  value={teagData.pesoPadrao}
+                  value={teagData.pesoPadrao || ""}
                   onChange={(e) => updateData("TEAG", "pesoPadrao", Number.parseFloat(e.target.value) || 0)}
                 />
               </td>
@@ -102,12 +129,22 @@ export function StaticTest({ data, onChange }: StaticTestProps) {
                 <input
                   type="number"
                   className="w-full rounded border p-1"
-                  value={teagData.resultado}
+                  value={teagData.resultado || ""}
                   onChange={(e) => updateData("TEAG", "resultado", Number.parseFloat(e.target.value) || 0)}
                 />
               </td>
-              <td className="p-3">{teag.variacao.toFixed(2)}</td>
-              <td className={`p-3 ${teag.percentual >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <td
+                className={`p-3 font-medium ${
+                  Math.abs(teag.variacao) >= 15 ? "text-red-600" : ""
+                }`}
+              >
+                {teag.variacao.toFixed(2)}
+              </td>
+              <td
+                className={`p-3 font-medium ${
+                  Math.abs(teag.percentual) >= 15 ? "text-red-600" : ""
+                }`}
+              >
                 {teag.percentual.toFixed(2)}%
               </td>
             </tr>

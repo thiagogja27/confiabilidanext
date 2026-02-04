@@ -1103,15 +1103,27 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
                               </tr>
                             </thead>
                             <tbody>
-                              {Object.entries(entry.testeEstatico).map(([key, teste]) => (
-                                <tr key={key}>
-                                  <td className="border p-2">{key}</td>
-                                  <td className="border p-2 text-center">{teste.pesoPadrao || 0}</td>
-                                  <td className="border p-2 text-center">{teste.resultado || 0}</td>
-                                  <td className="border p-2 text-center">{teste.variacaoPeso || 0} kg</td>
-                                  <td className="border p-2 text-center">{teste.variacaoPercentual || "0%"}</td>
-                                </tr>
-                              ))}
+                            {Object.entries(entry.testeEstatico).map(([balanca, teste]: [string, any]) => {
+                      // Pega o valor da porcentagem, não importa o nome da propriedade
+                      const percentual = teste.percentualVariacao || teste.variacaoPercentual;
+                      // Extrai o valor numérico para a lógica da cor
+                      const percentualValue = parseFloat(percentual || "0");
+                      const variacaoPesoValue = parseFloat(teste.variacaoPeso || "0");
+
+                      return (
+                        <tr key={balanca}>
+                          <td className="border p-2 font-medium">{balanca}</td>
+                          <td className="border p-2">{teste.pesoPadrao} kg</td>
+                          <td className="border p-2">{teste.resultado} kg</td>
+                          <td className={`border p-2 text-center font-medium ${Math.abs(variacaoPesoValue) >= 15 ? "text-red-600" : ""}`}>
+                            {variacaoPesoValue.toFixed(2)} kg
+                          </td>
+                          <td className={`border p-2 text-center font-medium ${Math.abs(percentualValue) >= 15 ? "text-red-600" : ""}`}>
+                            {percentual || "0.00%"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                             </tbody>
                           </table>
                         </div>

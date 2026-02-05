@@ -19,6 +19,7 @@ import { Wrench } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AdjustmentModal } from "@/components/adjustment-modal";
 import { TemporalEvolutionContainer } from "./temporal-evolution-container";
+import { ScaleComparisonChart } from "./scale-comparison-chart"
 
 
 export interface BalanceReading {
@@ -889,98 +890,18 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
                       </div>
                     </div>
 
-                    {/* Balances Table */}
-                    {entry.balancas && Object.keys(entry.balancas).length > 0 && (
-                      <div>
-                        <h4 className="font-semibold mb-2">Balanças</h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm border-collapse">
-                          <thead>
-  <tr className="bg-muted">
-    <th className="border p-2 text-left">Balança</th>
-    <th className="border p-2 text-center">Ponta Mar</th>
-    <th className="border p-2 text-center">Meio</th>
-    <th className="border p-2 text-center">Ponta Terra</th>
-    <th className="border p-2 text-center">Diferença</th>
-    <th className="border p-2 text-center">Status</th>
-    <th className="border p-2 text-center">Ações</th>
-  </tr>
-</thead>
-
-<tbody>
-  {Object.entries(entry.balancas).map(([key, bal]) => {
-    const valuesToUse = bal.ajuste || bal; // Usa valores ajustados se existirem
-    const diff = calculateDiferenca(bal); // A função já lida com o ajuste
-    const isConfiavel = diff <= 40;
-    return (
-      <tr key={key}>
-        <td className="border p-2">
-          <div className="flex items-center gap-2 justify-start">
-            <span>{key}</span>
-            {/* Ícone se houver ajuste */}
-            {bal.ajuste && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Wrench className="h-4 w-4 text-blue-500" />
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-background border p-2 rounded-md shadow-lg">
-  {/* A classe text-foreground foi adicionada aqui para garantir que o texto seja visível */}
-  <div className="space-y-2 text-foreground">
-    <p className="font-semibold border-b pb-1">Detalhes do Ajuste</p>
-    <p><span className="font-medium">Ajustado por:</span> {bal.ajuste.ajustadoPor}</p>
-    <p><span className="font-medium">Data:</span> {new Date(bal.ajuste.dataAjuste).toLocaleString('pt-BR')}</p>
-    {bal.ajuste.observacoes && <p><span className="font-medium">Obs:</span> {bal.ajuste.observacoes}</p>}
-    
-    <div className="pt-2 border-t mt-2 text-xs">
-      <p>Ponta Mar: <span className="line-through text-muted-foreground">{bal.pontaMar}kg</span> → <span className="font-bold text-primary">{bal.ajuste.pontaMar}kg</span></p>
-      <p>Meio: <span className="line-through text-muted-foreground">{bal.meio}kg</span> → <span className="font-bold text-primary">{bal.ajuste.meio}kg</span></p>
-      <p>Ponta Terra: <span className="line-through text-muted-foreground">{bal.pontaTerra}kg</span> → <span className="font-bold text-primary">{bal.ajuste.pontaTerra}kg</span></p>
-    </div>
+                   {/* Balances Table with Comparison Chart */}
+{entry.balancas && Object.keys(entry.balancas).length > 0 && (
+  <div>
+    <h4 className="font-semibold mb-2">Balanças</h4>
+    <ScaleComparisonChart
+      balances={entry.balancas}
+      calculateDiferenca={calculateDiferenca}
+      onOpenAdjustmentModal={(balancaId) => handleOpenAdjustmentModal(entry, balancaId)}
+    />
   </div>
-</TooltipContent>
+)}
 
-
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-        </td>
-        {/* Exibe os valores corretos (originais ou ajustados) */}
-        <td className="border p-2 text-center">{valuesToUse.pontaMar || 0}</td>
-        <td className="border p-2 text-center">{valuesToUse.meio || 0}</td>
-        <td className="border p-2 text-center">{valuesToUse.pontaTerra || 0}</td>
-        <td
-          className={`border p-2 text-center font-medium ${isConfiavel ? "text-green-600" : "text-red-600"}`}
-        >
-          {diff.toFixed(1)} kg
-        </td>
-        <td className="border p-2 text-center">
-          <span
-            className={`px-2 py-1 rounded-full text-xs ${isConfiavel ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-          >
-            {isConfiavel ? "Confiável" : "Diferença > 40kg"}
-          </span>
-        </td>
-        {/* Célula com o botão de Ajuste */}
-        <td className="border p-2 text-center">
-          <Button variant="outline" size="sm" onClick={(e) => {
-            e.stopPropagation(); // Impede que o card expanda/recolha
-            handleOpenAdjustmentModal(entry, key);
-          }}>
-            <Wrench className="mr-2 h-3 w-3" />
-            Ajuste
-          </Button>
-        </td>
-      </tr>
-    )
-  })}
-</tbody>
-
-                          </table>
-                        </div>
-                      </div>
-                    )}
 {/* Diferenças Específicas */}
 {(() => {
   // Só prossiga se houver balanças neste registro

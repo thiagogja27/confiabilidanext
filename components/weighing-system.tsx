@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { signOut } from "firebase/auth"
 import { ref, push } from "firebase/database"
 import { auth, database } from "@/lib/firebase"
@@ -21,6 +21,9 @@ interface Alert {
   message: string;
   type: 'info' | 'warning' | 'error';
 }
+
+const roadScales = ['3', '6', '7', '8'];
+const railScales = ['1', '2', '5', '9', '10'];
 
 export function WeighingSystem({ user }: WeighingSystemProps) {
   const [showDashboard, setShowDashboard] = useState(false)
@@ -43,65 +46,71 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
     nomeSeguranca: "",
   })
 
+  const speakAlerts = useCallback((alertsToSpeak: Alert[]) => {
+    if (typeof window !== 'undefined' && voiceEnabled && alertsToSpeak.length > 0) {
+      speechSynthesis.cancel(); 
+      const uniqueMessages = [...new Set(alertsToSpeak.map(a => a.message))];
+      const utteranceText = `Atenção: ${uniqueMessages.join('. ')}`;
+      const utterance = new SpeechSynthesisUtterance(utteranceText);
+      utterance.lang = 'pt-BR';
+      speechSynthesis.speak(utterance);
+    }
+  }, [voiceEnabled]);
+
   useEffect(() => {
     const newAlerts: Alert[] = [];
     const scaleEntries = Object.entries(scaleData);
 
-    // Intra-scale difference check
-    scaleEntries.forEach(([scaleNum, data]) => {
-        const { pontaMar = 0, meio = 0, pontaTerra = 0 } = data || {};
-        const values = [
-            { name: 'Ponta Mar', value: pontaMar },
-            { name: 'Meio', value: meio },
-            { name: 'Ponta Terra', value: pontaTerra }
-        ].filter(v => v.value > 0); 
+    // =================================================================
+    // Verificação 1: (DIFERENÇA INTERNA) FOI REMOVIDA, COMO SOLICITADO
+    // =================================================================
 
-        if (values.length > 1) {
-            for (let i = 0; i < values.length; i++) {
-                for (let j = i + 1; j < values.length; j++) {
-                    const diff = Math.abs(values[i].value - values[j].value);
-                    if (diff > 40) { // Threshold
-                        const message = `Balança ${scaleNum}: Diferença de ${diff.toFixed(1)}kg entre ${values[i].name} e ${values[j].name}`;
-                        newAlerts.push({ message, type: 'error' });
-                    }
-                }
-            }
-        }
-    });
+    // =================================================================
+    // VERIFICAÇÃO 2: Diferença ENTRE balanças (MANTIDA)
+    // =================================================================
+    const fieldNameMap: { [key: string]: string } = {
+       pontaMar: 'Ponta Mar',
+       meio: 'Meio',
+       pontaTerra: 'Ponta Terra'
+    };
 
-    // Inter-scale difference check
-    const pairsToCompare = [['10', '5'], ['10', '9'], ['10', '1'], ['3', '6']];
-    pairsToCompare.forEach(([balancaA, balancaB]) => {
-        const dataA = scaleData[balancaA];
-        const dataB = scaleData[balancaB];
+    for (let i = 0; i < scaleEntries.length; i++) {
+       for (let j = i + 1; j < scaleEntries.length; j++) {
+           const [balancaA_Num, dataA] = scaleEntries[i];
+           const [balancaB_Num, dataB] = scaleEntries[j];
 
-        if (dataA && dataB) {
-            const fields = ['pontaMar', 'meio', 'pontaTerra'];
-            fields.forEach(field => {
-                const valA = dataA[field] || 0;
-                const valB = dataB[field] || 0;
-                const diff = valA - valB;
+           const isTypeARail = railScales.includes(balancaA_Num);
+           const isTypeBRail = railScales.includes(balancaB_Num);
+           const isTypeARoad = roadScales.includes(balancaA_Num);
+           const isTypeBRoad = roadScales.includes(balancaB_Num);
 
-                if (Math.abs(diff) > 40) { // Threshold
-                    const fieldName = field.replace('pontaMar', 'Ponta Mar').replace('pontaTerra', 'Ponta Terra');
-                    const message = `Balanças ${balancaA} e ${balancaB}: Diferença de ${Math.abs(diff).toFixed(1)}kg no ${fieldName}`;
-                    newAlerts.push({ message, type: 'error' });
-                }
-            });
-        }
-    });
+           if (!((isTypeARail && isTypeBRail) || (isTypeARoad && isTypeBRoad))) {
+               continue;
+           }
 
-    setAlerts(newAlerts);
+           if (dataA && dataB) {
+               Object.keys(fieldNameMap).forEach(field => {
+                   const valA = parseFloat(dataA[field]) || 0;
+                   const valB = parseFloat(dataB[field]) || 0;
 
-    if (voiceEnabled && newAlerts.length > 0) {
-        const uniqueMessages = [...new Set(newAlerts.map(a => a.message))];
-        const utteranceText = `Atenção: ${uniqueMessages.join('. ')}`;
-        const utterance = new SpeechSynthesisUtterance(utteranceText);
-        utterance.lang = 'pt-BR';
-        speechSynthesis.speak(utterance);
+                   if (valA > 0 || valB > 0) {
+                       const diff = Math.abs(valA - valB);
+
+                       if (diff > 40) {
+                           const fieldName = fieldNameMap[field];
+                           const message = `Divergência de ${diff.toFixed(1)}kg em '${fieldName}' entre Balança ${balancaA_Num} e ${balancaB_Num}`;
+                           newAlerts.push({ message, type: 'error' });
+                       }
+                   }
+               });
+           }
+       }
     }
 
-  }, [scaleData, voiceEnabled]);
+    setAlerts(newAlerts);
+    speakAlerts(newAlerts);
+
+  }, [scaleData, speakAlerts]);
 
   const handleLogout = async () => {
     try {

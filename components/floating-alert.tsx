@@ -20,11 +20,13 @@ export function FloatingAlert({ alerts }: FloatingAlertProps) {
       <Tooltip open={hasAlerts ? true : undefined} defaultOpen={false}>
         <TooltipTrigger asChild>
           <div
-            className={`fixed bottom-8 right-8 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-300 z-50 ${hasAlerts ? 'animate-pulse' : 'animate-pulse-slow'}`}
+            // AQUI ESTÁ A ALTERAÇÃO DE POSIÇÃO
+            className={`fixed top-8 right-8 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-300 z-50 ${hasAlerts ? 'animate-pulse' : 'animate-pulse-slow'}`}
             style={{ backgroundColor: hasAlerts ? '#ef4444' : '#22c55e' }} // red-500 or green-500
           ></div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="end" className="bg-background border shadow-lg p-4 rounded-md max-w-xs">
+        {/* AQUI ESTÁ A ALTERAÇÃO DO LADO DO BALÃO */}
+        <TooltipContent side="bottom" align="end" className="bg-background border shadow-lg p-4 rounded-md max-w-xs">
           {hasAlerts ? (
             <div>
               <h4 className="font-bold mb-2 text-lg text-red-700">Alertas:</h4>

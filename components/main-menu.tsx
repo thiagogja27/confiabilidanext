@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { ref, onValue, remove } from "firebase/database"
+import { database } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
-import { Menu, LogOut, Save, FileText, Settings, Bell, Wrench } from "lucide-react"
-import { AdjustmentModal } from "@/components/adjustment-modal"
+import { Menu, LogOut, Save, FileText, Settings, Bell } from "lucide-react"
 import { NotificationsPanel } from "@/components/notifications-panel"
 
 interface MainMenuProps {
@@ -15,12 +16,30 @@ interface MainMenuProps {
 
 export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard }: MainMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [notifications, setNotifications] = useState<Record<string, any>>({})
+
+  useEffect(() => {
+    const notificationsRef = ref(database, "dashboardNotifications")
+    const unsubscribe = onValue(notificationsRef, (snapshot) => {
+      const data = snapshot.val()
+      setNotifications(data || {})
+    })
+    return () => unsubscribe()
+  }, [])
 
   const simulateWeights = () => {
     alert("Função de simulação de pesos - implementar lógica de teste")
   }
+
+  const handleClearAllNotifications = async () => {
+    if (confirm("Deseja realmente apagar todas as notificações?")) {
+      const notificationsRef = ref(database, "dashboardNotifications")
+      await remove(notificationsRef)
+    }
+  }
+
+  const notificationCount = Object.keys(notifications).length
 
   return (
     <>
@@ -33,8 +52,23 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
             </Button>
 
             <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={() => setShowNotifications(true)} title="Ver notificações">
-                <Bell className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowNotifications(true)}
+                title="Ver notificações"
+                className="relative"
+              >
+                {notificationCount > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                    {notificationCount}
+                  </span>
+                )}
+                <Bell
+                  className={`h-4 w-4 ${
+                    notificationCount > 0 ? "animate-pulse text-red-500" : ""
+                  }`}
+                />
               </Button>
             </div>
 
@@ -51,10 +85,7 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
                         <Save className="mr-2 h-4 w-4" />
                         Salvar Dados
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => setShowAdjustmentModal(true)}>
-                        <Wrench className="mr-2 h-4 w-4" />
-                        Ajuste
-                      </Button>
+                      {/* O botão de Ajuste foi removido daqui */}
                     </>
                   )}
                   <Button variant="outline" size="sm" onClick={onShowDashboard}>
@@ -71,9 +102,14 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
           </div>
         </div>
       </nav>
-
-      <AdjustmentModal open={showAdjustmentModal} onClose={() => setShowAdjustmentModal(false)} />
-      <NotificationsPanel open={showNotifications} onClose={() => setShowNotifications(false)} />
+      
+      {/* O Modal de Ajuste foi removido daqui */}
+      <NotificationsPanel
+        open={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        notifications={notifications}
+        onClearAll={handleClearAllNotifications}
+      />
     </>
   )
 }

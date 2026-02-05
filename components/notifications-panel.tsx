@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { ref, onValue, remove } from "firebase/database"
+import { useState } from "react"
+import { ref, remove } from "firebase/database"
 import { database } from "@/lib/firebase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,35 +21,13 @@ interface Notification {
 interface NotificationsPanelProps {
   open: boolean
   onClose: () => void
+  notifications: Record<string, Notification>
+  onClearAll: () => void
 }
 
-export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
-  const [notifications, setNotifications] = useState<Record<string, Notification>>({})
+export function NotificationsPanel({ open, onClose, notifications, onClearAll }: NotificationsPanelProps) {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
   const [showDetails, setShowDetails] = useState(false)
-
-  useEffect(() => {
-    const notificationsRef = ref(database, "dashboardNotifications")
-
-    const unsubscribe = onValue(notificationsRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        setNotifications(data)
-      } else {
-        setNotifications({})
-      }
-    })
-
-    return () => unsubscribe()
-  }, [])
-
-  const clearAllNotifications = async () => {
-    if (confirm("Deseja realmente apagar todas as notificações?")) {
-      const notificationsRef = ref(database, "dashboardNotifications")
-      await remove(notificationsRef)
-      setNotifications({})
-    }
-  }
 
   const viewDetails = (notification: Notification) => {
     setSelectedNotification(notification)
@@ -63,7 +41,7 @@ export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>Notificações de Ajustes</DialogTitle>
-              <Button variant="outline" size="sm" onClick={clearAllNotifications}>
+              <Button variant="outline" size="sm" onClick={onClearAll}>
                 Apagar Todas
               </Button>
             </div>
@@ -114,39 +92,37 @@ export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
           </DialogHeader>
 
           {selectedNotification && (
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Data</p>
-                <p className="text-base">{selectedNotification.date}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Mensagem</p>
-                <p className="text-base">{selectedNotification.message}</p>
-              </div>
-              {selectedNotification.pontaTerra !== undefined && (
+            <div className="space-y-4 pt-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Ponta Terra</p>
-                  <p className="text-base">{selectedNotification.pontaTerra} kg</p>
+                    <h4 className="font-semibold text-gray-800">Mensagem:</h4>
+                    <p className="text-gray-600">{selectedNotification.message}</p>
                 </div>
-              )}
-              {selectedNotification.meio !== undefined && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Meio</p>
-                  <p className="text-base">{selectedNotification.meio} kg</p>
+                    <h4 className="font-semibold text-gray-800">Data:</h4>
+                    <p className="text-gray-600">{selectedNotification.date}</p>
                 </div>
-              )}
-              {selectedNotification.pontaMar !== undefined && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Ponta Mar</p>
-                  <p className="text-base">{selectedNotification.pontaMar} kg</p>
+                
+                <div className="grid grid-cols-3 gap-4 rounded-md border p-4">
+                    <div>
+                        <h4 className="font-semibold text-gray-800">Ponta Mar</h4>
+                        <p className="text-lg font-mono text-blue-600">{selectedNotification.pontaMar ?? 'N/A'} kg</p>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-gray-800">Meio</h4>
+                        <p className="text-lg font-mono text-blue-600">{selectedNotification.meio ?? 'N/A'} kg</p>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-gray-800">Ponta Terra</h4>
+                        <p className="text-lg font-mono text-blue-600">{selectedNotification.pontaTerra ?? 'N/A'} kg</p>
+                    </div>
                 </div>
-              )}
-              {selectedNotification.observations && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Observações</p>
-                  <p className="text-base">{selectedNotification.observations}</p>
-                </div>
-              )}
+
+                {selectedNotification.observations && (
+                    <div>
+                        <h4 className="font-semibold text-gray-800">Observações:</h4>
+                        <p className="text-gray-600 p-2 border rounded-md bg-gray-50">{selectedNotification.observations}</p>
+                    </div>
+                )}
             </div>
           )}
         </DialogContent>

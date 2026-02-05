@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { WeighingEntry } from "@/lib/types" // Precisaremos criar/ajustar este arquivo de tipos
+import { WeighingEntry } from "@/lib/types"
 
-// Esta é a estrutura dos dados do ajuste que vamos salvar.
 export interface Adjustment {
   ajustadoPor: string;
   pontaMar: number;
@@ -19,13 +18,10 @@ export interface Adjustment {
   dataAjuste: string;
 }
 
-// As propriedades para o modal agora são mais específicas.
 interface AdjustmentModalProps {
   open: boolean;
   onClose: () => void;
-  // Recebe a entrada de pesagem completa para obter o ID
   entry: WeighingEntry | null;
-  // Recebe o ID/nome da balança específica que está sendo ajustada
   balancaId: string | null;
 }
 
@@ -37,8 +33,6 @@ export function AdjustmentModal({ open, onClose, entry, balancaId }: AdjustmentM
   const [observacoes, setObservacoes] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  // Este efeito é executado quando o modal abre ou o registro muda.
-  // Ele pré-preenche o formulário se um ajuste já existir.
   useEffect(() => {
     if (open && entry && balancaId && entry.balancas[balancaId]?.ajuste) {
       const existingAdjustment = entry.balancas[balancaId].ajuste!;
@@ -48,7 +42,6 @@ export function AdjustmentModal({ open, onClose, entry, balancaId }: AdjustmentM
       setPontaTerra(existingAdjustment.pontaTerra.toString())
       setObservacoes(existingAdjustment.observacoes || "")
     } else {
-      // Se não houver ajuste, limpa o formulário.
       setAjustadoPor("")
       setPontaMar("")
       setMeio("")
@@ -58,13 +51,13 @@ export function AdjustmentModal({ open, onClose, entry, balancaId }: AdjustmentM
   }, [open, entry, balancaId])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!entry || !balancaId) {
-        console.error("Nenhum registro selecionado para ajuste.")
-        return;
+      console.error("Nenhum registro selecionado para ajuste.");
+      return;
     }
-    
-    setIsLoading(true)
+
+    setIsLoading(true);
 
     const newAdjustment: Adjustment = {
       ajustadoPor,
@@ -73,29 +66,44 @@ export function AdjustmentModal({ open, onClose, entry, balancaId }: AdjustmentM
       pontaTerra: Number(pontaTerra) || 0,
       observacoes,
       dataAjuste: new Date().toISOString(),
-    }
+    };
+
+    // Lógica de Notificação
+    const notificationMessage = `Ajuste na Balança ${balancaId} realizado por ${ajustadoPor}.`;
+    const notificationKey = `notif_${new Date().getTime()}_${entry.key}`; // Chave única
+
+    const newNotification = {
+      date: new Date().toLocaleString("pt-BR"),
+      message: notificationMessage,
+      pontaTerra: newAdjustment.pontaTerra,
+      meio: newAdjustment.meio,
+      pontaMar: newAdjustment.pontaMar,
+      observations: newAdjustment.observacoes,
+      entryId: entry.key,
+      balancaId: balancaId,
+    };
 
     try {
-      // O caminho agora aponta diretamente para a balança específica dentro do registro específico.
-      // Corrigindo o caminho para usar entry.key em vez de entry.id
       const adjustmentPath = `pesagens/${entry.key}/balancas/${balancaId}/ajuste`;
+      const notificationPath = `dashboardNotifications/${notificationKey}`;
+
+      // Combina o ajuste e a notificação em uma única operação de atualização atômica.
       const updates = {
-        [adjustmentPath]: newAdjustment
+        [adjustmentPath]: newAdjustment,
+        [notificationPath]: newNotification,
       };
 
-      // Usamos `update` para definir ou sobrescrever o objeto 'ajuste'.
       await update(ref(database), updates);
 
-      console.log("Ajuste salvo com sucesso!")
-      onClose(); // Fecha o modal em caso de sucesso.
+      console.log("Ajuste e notificação salvos com sucesso!");
+      onClose();
     } catch (error) {
-      console.error("Erro ao salvar o ajuste:", error)
+      console.error("Erro ao salvar o ajuste e a notificação:", error);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-  }
-  
-  // Retorna nulo se o modal não deveria estar aberto ou se os dados estiverem faltando.
+  };
+
   if (!open || !entry || !balancaId) return null;
 
   const balancaName = `Balança ${balancaId}`;

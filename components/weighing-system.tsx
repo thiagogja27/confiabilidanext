@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { signOut } from "firebase/auth"
-import { ref, push } from "firebase/database"
+import { ref, push, serverTimestamp } from "firebase/database"
 import { auth, database } from "@/lib/firebase"
 import { MainMenu } from "@/components/main-menu"
 import { Checklist } from "@/components/checklist"
@@ -12,6 +12,15 @@ import { StaticTest } from "@/components/static-test"
 import { AdvancedDashboard } from "@/components/advanced-dashboard"
 import { DynamicScaleInputs, type DynamicScaleEntry } from "@/components/dynamic-scale-inputs"
 import { FloatingAlert } from "@/components/floating-alert"
+
+// --- NOVAS IMPORTAÇÕES PARA RESEND E UTILS ---
+import { sendAlertEmail } from "@/app/actions/send-alert";
+import { sendSummaryEmail } from "@/app/actions/send-summary";
+import {
+  calculateDiferenca,
+  type WeighingEntry,
+  type BalanceReading,
+} from "@/lib/utils";
 
 interface WeighingSystemProps {
   user: any
@@ -29,7 +38,7 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
   const [showDashboard, setShowDashboard] = useState(false)
   const [vehicleType, setVehicleType] = useState("pc")
   const [vehicleType2, setVehicleType2] = useState("pc")
-  const [scaleData, setScaleData] = useState<Record<number, any>>({})
+  const [scaleData, setScaleData] = useState<Record<string, BalanceReading>>({})
   const [checklistData, setChecklistData] = useState<any>({})
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [selectedScale, setSelectedScale] = useState<string>("all")
@@ -60,14 +69,7 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
   useEffect(() => {
     const newAlerts: Alert[] = [];
     const scaleEntries = Object.entries(scaleData);
-
-    // =================================================================
-    // Verificação 1: (DIFERENÇA INTERNA) FOI REMOVIDA, COMO SOLICITADO
-    // =================================================================
-
-    // =================================================================
-    // VERIFICAÇÃO 2: Diferença ENTRE balanças (MANTIDA)
-    // =================================================================
+    
     const fieldNameMap: { [key: string]: string } = {
        pontaMar: 'Ponta Mar',
        meio: 'Meio',
@@ -90,8 +92,8 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
 
            if (dataA && dataB) {
                Object.keys(fieldNameMap).forEach(field => {
-                   const valA = parseFloat(dataA[field]) || 0;
-                   const valB = parseFloat(dataB[field]) || 0;
+                   const valA = parseFloat(dataA[field as keyof BalanceReading] as string) || 0;
+                   const valB = parseFloat(dataB[field as keyof BalanceReading] as string) || 0;
 
                    if (valA > 0 || valB > 0) {
                        const diff = Math.abs(valA - valB);
@@ -122,45 +124,83 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
 
   const handleSaveData = async (formDataParam?: any) => {
     try {
-      const vehicleData = formDataParam || {
-        ...formData,
-        tipoVeiculo: vehicleType,
-        tipoVeiculo2: vehicleType2,
-      }
+        const vehicleData = formDataParam || {
+            ...formData,
+            tipoVeiculo: vehicleType,
+            tipoVeiculo2: vehicleType2,
+        };
 
-      const pesagemData = {
-        ...vehicleData,
-        balancas: scaleData,
-        checklist: checklistData,
-        testeEstatico: staticTestData,
-        afericaoBalancaDinamica: dynamicScaleEntries,
-        userId: user.uid,
-        timestamp: Date.now(),
-        dataHora: vehicleData.dataHora || new Date().toISOString().slice(0, 16),
-      }
+        const pesagemData: WeighingEntry = {
+            ...vehicleData,
+            balancas: scaleData,
+            checklist: checklistData,
+            testeEstatico: staticTestData,
+            afericaoBalancaDinamica: dynamicScaleEntries,
+            userId: user.uid,
+            timestamp: serverTimestamp(),
+            dataHora: vehicleData.dataHora || new Date().toISOString().slice(0, 16),
+        };
 
-      await push(ref(database, "pesagens"), pesagemData)
-      alert("Dados salvos com sucesso!")
+        await push(ref(database, "pesagens"), pesagemData);
+        alert("Dados salvos com sucesso!");
 
-      // Reset states
-      setScaleData({})
-      setChecklistData({})
-      setStaticTestData({})
-      setDynamicScaleEntries([])
-      setFormData({
-        dataHora: new Date().toISOString().slice(0, 16),
-        placa: "",
-        placa2: "",
-        motorista: "",
-        nomeAssistente: "",
-        turnoAssistente: "turnoA",
-        nomeSeguranca: "",
-      })
+        const emailRecipient = process.env.NEXT_PUBLIC_RECIPIENT_EMAIL || 'thiagogja26@gmail.com';
+
+        const problematicBalances = Object.entries(pesagemData.balancas ?? {})
+            .map(([id, bal]) => ({ id, diferenca: calculateDiferenca(bal as BalanceReading) }))
+            .filter(b => b.diferenca > 40);
+
+        if (problematicBalances.length > 0) {
+            console.log(`[ALERTA] ${problematicBalances.length} balança(s) com anomalia. Enviando e-mail(s)...`);
+            for (const bal of problematicBalances) {
+                const alertResult = await sendAlertEmail({
+                    toEmail: emailRecipient,
+                    entry: pesagemData,
+                    problematicBalance: bal,
+                });
+                if (alertResult.success) {
+                    console.log(`E-mail de alerta para balança ${bal.id} enviado.`);
+                } else {
+                    console.error(`Falha no envio do alerta para balança ${bal.id}:`, alertResult.message);
+                    alert(`Falha no envio do e-mail de alerta para ${bal.id}: ${alertResult.message}`);
+                }
+            }
+        } else {
+            console.log("[NORMAL] Nenhuma anomalia. Enviando relatório...");
+            const summaryResult = await sendSummaryEmail({
+                toEmail: emailRecipient,
+                entry: pesagemData,
+            });
+
+            if (summaryResult.success) {
+                console.log("E-mail de relatório enviado com sucesso.");
+            } else {
+                console.error("Falha no envio do relatório:", summaryResult.message);
+                alert(`Falha no envio do e-mail: ${summaryResult.message}`);
+            }
+        }
+
+        // Reset states
+        setScaleData({});
+        setChecklistData({});
+        setStaticTestData({});
+        setDynamicScaleEntries([]);
+        setFormData({
+            dataHora: new Date().toISOString().slice(0, 16),
+            placa: "",
+            placa2: "",
+            motorista: "",
+            nomeAssistente: "",
+            turnoAssistente: "turnoA",
+            nomeSeguranca: "",
+        });
+
     } catch (error) {
-      console.error("Erro ao salvar dados:", error)
-      alert("Erro ao salvar dados")
+        console.error("Erro ao salvar dados:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        alert(`Erro ao salvar dados: ${errorMessage}`);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">

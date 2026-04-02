@@ -386,6 +386,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       const baseInfo = {
         DataHora: entry.dataHora,
         Placa: entry.placa,
+        Placa2: entry.placa2 || "N/A",
         TipoVeiculo: entry.tipoVeiculo,
         TipoVeiculo2: entry.tipoVeiculo2 || "N/A",
         Motorista: entry.motorista || "",
@@ -557,6 +558,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
           pesagensRows.push([
             entry.dataHora,
             entry.placa,
+            entry.placa2 || "N/A",
             entry.nomeAssistente, // <-- COLUNA ADICIONADA
             entry.turnoAssistente,  // <-- COLUNA ADICIONADA
             balancaName,
@@ -568,13 +570,13 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
           ])
         })
       } else {
-        pesagensRows.push([entry.dataHora, entry.placa, entry.nomeAssistente, entry.turnoAssistente, "-", "-", "-", "-", "-", "-"])
+        pesagensRows.push([entry.dataHora, entry.placa, entry.placa2 || "N/A", entry.nomeAssistente, entry.turnoAssistente, "-", "-", "-", "-", "-", "-"])
       }
     })
 
     autoTable(doc, {
       startY: 42,
-      head: [["Data/Hora", "Placa", "Assistente", "Turno", "Balança", "Ponta Mar", "Meio", "Ponta Terra", "Diferença", "Status"]],
+      head: [["Data/Hora", "Placa", "Placa 2", "Assistente", "Turno", "Balança", "Ponta Mar", "Meio", "Ponta Terra", "Diferença", "Status"]],
       body: pesagensRows,
       theme: "grid",
       styles: { fontSize: 7, cellPadding: 1.5 },

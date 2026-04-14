@@ -1,11 +1,12 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { ref, onValue, remove } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { auth, database } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Menu, LogOut, Save, FileText, Settings, Bell } from "lucide-react"
 import { NotificationsPanel } from "@/components/notifications-panel"
+import { OnlineUsers } from "@/components/online-users"
 
 interface MainMenuProps {
   onLogout: () => void
@@ -18,14 +19,27 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
   const [isOpen, setIsOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [notifications, setNotifications] = useState<Record<string, any>>({})
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const notificationsRef = ref(database, "dashboardNotifications")
-    const unsubscribe = onValue(notificationsRef, (snapshot) => {
+    const unsubscribeNotifications = onValue(notificationsRef, (snapshot) => {
       const data = snapshot.val()
       setNotifications(data || {})
     })
-    return () => unsubscribe()
+
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      if (user) {
+        setCurrentUserEmail(user.email)
+      } else {
+        setCurrentUserEmail(null)
+      }
+    })
+
+    return () => {
+      unsubscribeNotifications()
+      unsubscribeAuth()
+    }
   }, [])
 
   const simulateWeights = () => {
@@ -51,7 +65,9 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
               Menu
             </Button>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {currentUserEmail === 'thiago_gja27@hotmail.com' && <OnlineUsers />}
+
               <Button
                 variant="outline"
                 size="icon"
@@ -85,7 +101,6 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
                         <Save className="mr-2 h-4 w-4" />
                         Salvar Dados
                       </Button>
-                      {/* O botão de Ajuste foi removido daqui */}
                     </>
                   )}
                   <Button variant="outline" size="sm" onClick={onShowDashboard}>
@@ -103,7 +118,6 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
         </div>
       </nav>
       
-      {/* O Modal de Ajuste foi removido daqui */}
       <NotificationsPanel
         open={showNotifications}
         onClose={() => setShowNotifications(false)}

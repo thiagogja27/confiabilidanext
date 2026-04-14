@@ -123,13 +123,20 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
   }
 
   const handleSaveData = async (formDataParam?: any) => {
-    try {
-        const vehicleData = formDataParam || {
-            ...formData,
-            tipoVeiculo: vehicleType,
-            tipoVeiculo2: vehicleType2,
-        };
+    const vehicleData = formDataParam || {
+      ...formData,
+      tipoVeiculo: vehicleType,
+      tipoVeiculo2: vehicleType2,
+    };
+    
+    const { placa, placa2, motorista, nomeAssistente, nomeSeguranca } = vehicleData;
+    
+    if (!placa || !placa2 || !motorista || !nomeAssistente || !nomeSeguranca) {
+      alert("Por favor, preencha todos os campos obrigatórios: Placa, Placa 2, Motorista, Nome do Assistente e Nome do Segurança.");
+      return;
+    }
 
+    try {
         const pesagemData: WeighingEntry = {
             ...vehicleData,
             balancas: scaleData,

@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState } from "react"
 import { database } from "@/lib/firebase"
@@ -77,6 +77,13 @@ export function EditEntryModal({ entry, onClose, onSave }: EditEntryModalProps) 
   })
 
   const handleSave = async () => {
+    const { placa, placa2, motorista, nomeAssistente, nomeSeguranca } = formData;
+
+    if (!placa || !placa2 || !motorista || !nomeAssistente || !nomeSeguranca) {
+      alert("Por favor, preencha todos os campos obrigatórios: Placa, Placa 2, Motorista, Nome do Assistente e Nome do Segurança.");
+      return;
+    }
+
     try {
       const entryRef = ref(database, `pesagens/${entry.key}`)
       await update(entryRef, {
@@ -105,6 +112,12 @@ export function EditEntryModal({ entry, onClose, onSave }: EditEntryModalProps) 
       },
     })
   }
+
+  const removeBalanca = (balancaId: string) => {
+    const newBalancas = { ...balancas };
+    delete newBalancas[balancaId];
+    setBalancas(newBalancas);
+  };
 
   const updateChecklist = (field: string, checked: boolean) => {
     setChecklist({
@@ -301,7 +314,13 @@ export function EditEntryModal({ entry, onClose, onSave }: EditEntryModalProps) 
             <div className="space-y-4">
               {Object.entries(balancas).map(([balancaId, balancaData]: [string, any]) => (
                 <div key={balancaId} className="border rounded-lg p-4">
-                  <h4 className="font-medium mb-3">Balança {balancaId}</h4>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium">Balança {balancaId}</h4>
+                    <Button variant="destructive" size="sm" onClick={() => removeBalanca(balancaId)}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir Balança
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <Label>Ponta Mar (kg)</Label>

@@ -181,7 +181,12 @@ export function WeighingSystem({ user }: WeighingSystemProps) {
         }
 
         // Reset states
-        setScaleData({});
+        const clearedScaleData = Object.keys(scaleData).reduce((acc, key) => {
+            acc[key] = { pontaMar: '', meio: '', pontaTerra: '' };
+            return acc;
+        }, {} as Record<string, BalanceReading>);
+        setScaleData(clearedScaleData);
+        
         setChecklistData({});
         setStaticTestData({});
         setDynamicScaleEntries([]);

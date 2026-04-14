@@ -90,7 +90,7 @@ export function ScaleComparisonChart({ balances, calculateDiferenca, onOpenAdjus
             x1, y1, x2, y2,
             color: columnColors[key],
             isAlert: diff > 40,
-            difference: diff.toFixed(1),
+            difference: diff.toFixed(0),
             midX,
             midY,
           });
@@ -184,9 +184,9 @@ export function ScaleComparisonChart({ balances, calculateDiferenca, onOpenAdjus
                                         <p><span className="font-medium">Data:</span> {new Date(bal.ajuste.dataAjuste).toLocaleString('pt-BR')}</p>
                                         {bal.ajuste.observacoes && <p><span className="font-medium">Obs:</span> {bal.ajuste.observacoes}</p>}
                                         <div className="pt-2 border-t mt-2 text-xs">
-                                            <p>Ponta Mar: <span className="line-through text-muted-foreground">{bal.pontaMar}kg</span> → <span className="font-bold text-primary">{bal.ajuste.pontaMar}kg</span></p>
-                                            <p>Meio: <span className="line-through text-muted-foreground">{bal.meio}kg</span> → <span className="font-bold text-primary">{bal.ajuste.meio}kg</span></p>
-                                            <p>Ponta Terra: <span className="line-through text-muted-foreground">{bal.pontaTerra}kg</span> → <span className="font-bold text-primary">{bal.ajuste.pontaTerra}kg</span></p>
+                                            <p>Ponta Mar: <span className="line-through text-muted-foreground">{Math.round(bal.pontaMar)}kg</span> → <span className="font-bold text-primary">{Math.round(bal.ajuste.pontaMar)}kg</span></p>
+                                            <p>Meio: <span className="line-through text-muted-foreground">{Math.round(bal.meio)}kg</span> → <span className="font-bold text-primary">{Math.round(bal.ajuste.meio)}kg</span></p>
+                                            <p>Ponta Terra: <span className="line-through text-muted-foreground">{Math.round(bal.pontaTerra)}kg</span> → <span className="font-bold text-primary">{Math.round(bal.ajuste.pontaTerra)}kg</span></p>
                                         </div>
                                     </div>
                                 </TooltipContent>
@@ -195,11 +195,11 @@ export function ScaleComparisonChart({ balances, calculateDiferenca, onOpenAdjus
                             )}
                         </div>
                     </td>
-                    <td data-key="pontaMar" className="border p-2 text-center">{valuesToUse.pontaMar || 0}</td>
-                    <td data-key="meio" className="border p-2 text-center">{valuesToUse.meio || 0}</td>
-                    <td data-key="pontaTerra" className="border p-2 text-center">{valuesToUse.pontaTerra || 0}</td>
+                    <td data-key="pontaMar" className="border p-2 text-center">{Math.round(valuesToUse.pontaMar) || 0}</td>
+                    <td data-key="meio" className="border p-2 text-center">{Math.round(valuesToUse.meio) || 0}</td>
+                    <td data-key="pontaTerra" className="border p-2 text-center">{Math.round(valuesToUse.pontaTerra) || 0}</td>
                     <td className={`border p-2 text-center font-medium ${isConfiavel ? 'text-green-600' : 'text-red-600'}`}>
-                        {diff.toFixed(1)} kg
+                        {diff.toFixed(0)} kg
                     </td>
                     <td className="border p-2 text-center">
                         <span className={`px-2 py-1 rounded-full text-xs ${isConfiavel ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { database } from "@/lib/firebase"
@@ -125,9 +125,9 @@ function calculateSpecificDifferences(entry: WeighingEntry) {
 
       differences.push({
         pair: `${balancaA} vs ${balancaB}`,
-        pontaMarDiff: pontaMarDiff.toFixed(1),
-        meioDiff: meioDiff.toFixed(1),
-        pontaTerraDiff: pontaTerraDiff.toFixed(1),
+        pontaMarDiff: pontaMarDiff.toFixed(0),
+        meioDiff: meioDiff.toFixed(0),
+        pontaTerraDiff: pontaTerraDiff.toFixed(0),
       });
     }
   });
@@ -565,7 +565,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
             bal.pontaMar || 0,
             bal.meio || 0,
             bal.pontaTerra || 0,
-            diff.toFixed(1) + " kg",
+            diff.toFixed(0) + " kg",
             diff <= 40 ? "Confiável" : "ALERTA DIFERENÇA > 40KG",
           ])
         })
@@ -626,8 +626,8 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
             entry.dataHora, vagao.prefixo || "-", vagao.bitola || "-", 
             vagao.placaVagoes || "-", vagao.pesoOrigem || "-",
             vagao.primeiraPassagemR300B || "-", vagao.segundaPassagemR300C || "-",
-            vagao.terceiraPassagemR300B || "-", (vagao.origemXPrimeira || 0).toFixed(1),
-            (vagao.origemXSegunda || 0).toFixed(1), (vagao.origemXTerceira || 0).toFixed(1),
+            vagao.terceiraPassagemR300B || "-", (vagao.origemXPrimeira || 0).toFixed(0),
+            (vagao.origemXSegunda || 0).toFixed(0), (vagao.origemXTerceira || 0).toFixed(0),
           ])
         })
       }
@@ -1097,17 +1097,17 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
                                   <td
                                     className={`border p-2 text-center font-medium ${Math.abs(vagao.origemXPrimeira || 0) <= 40 ? "text-green-600" : "text-red-600"}`}
                                   >
-                                    {(vagao.origemXPrimeira || 0).toFixed(1)}
+                                    {(vagao.origemXPrimeira || 0).toFixed(0)}
                                   </td>
                                   <td
                                     className={`border p-2 text-center font-medium ${Math.abs(vagao.origemXSegunda || 0) <= 40 ? "text-green-600" : "text-red-600"}`}
                                   >
-                                    {(vagao.origemXSegunda || 0).toFixed(1)}
+                                    {(vagao.origemXSegunda || 0).toFixed(0)}
                                   </td>
                                   <td
                                     className={`border p-2 text-center font-medium ${Math.abs(vagao.origemXTerceira || 0) <= 40 ? "text-green-600" : "text-red-600"}`}
                                   >
-                                    {(vagao.origemXTerceira || 0).toFixed(1)}
+                                    {(vagao.origemXTerceira || 0).toFixed(0)}
                                   </td>
                                 </tr>
                               ))}

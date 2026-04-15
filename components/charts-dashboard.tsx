@@ -1,34 +1,33 @@
-"use client"
+'use client'
 
 import { useEffect, useRef, useState } from "react"
 import { database } from "@/lib/firebase"
 import { ref, onValue, off } from "firebase/database"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckCircle, XCircle, TrendingUp, TrendingDown } from "lucide-react"
 import Chart from "chart.js/auto"
 
 interface WeighingEntry {
-  dataHora: string
+  dataHora: string;
+  turnoAssistente: string;
   balancas: Record<
     string,
     {
-      pontaMar: number
-      meio: number
-      pontaTerra: number
+      pontaMar: number;
+      meio: number;
+      pontaTerra: number;
     }
-  >
+  >;
 }
 
 export function ChartsDashboard() {
-  const [entries, setEntries] = useState<Record<string, WeighingEntry>>({})
-  const [selectedInterval, setSelectedInterval] = useState(7)
-  const weightDiffChartRef = useRef<HTMLCanvasElement>(null)
-  const monthlyEntriesChartRef = useRef<HTMLCanvasElement>(null)
-  const monthlyVariationsChartRef = useRef<HTMLCanvasElement>(null)
-  const weightDiffChart = useRef<Chart | null>(null)
-  const monthlyEntriesChart = useRef<Chart | null>(null)
-  const monthlyVariationsChart = useRef<Chart | null>(null)
+  const [entries, setEntries] = useState<Record<string, WeighingEntry>>({});
+  const reliabilityByShiftChartRef = useRef<HTMLCanvasElement>(null);
+  const monthlyEntriesChartRef = useRef<HTMLCanvasElement>(null);
+  const monthlyVariationsChartRef = useRef<HTMLCanvasElement>(null);
+  const reliabilityByShiftChart = useRef<Chart | null>(null);
+  const monthlyEntriesChart = useRef<Chart | null>(null);
+  const monthlyVariationsChart = useRef<Chart | null>(null);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -36,51 +35,51 @@ export function ChartsDashboard() {
     naoConfiaveis: 0,
     percentualConfiavel: 0,
     variacaoMedia: 0,
-  })
+  });
 
   useEffect(() => {
-    const pesagensRef = ref(database, "pesagens")
+    const pesagensRef = ref(database, "pesagens");
 
     const unsubscribe = onValue(pesagensRef, (snapshot) => {
-      const data = snapshot.val()
+      const data = snapshot.val();
       if (data) {
-        setEntries(data)
-        calculateStats(data)
+        setEntries(data);
+        calculateStats(data);
       }
-    })
+    });
 
-    return () => off(pesagensRef)
-  }, [])
+    return () => off(pesagensRef);
+  }, []);
 
   const calculateStats = (data: Record<string, WeighingEntry>) => {
-    let totalBalancas = 0
-    let confiaveisCount = 0
-    let totalVariacao = 0
-    let variacaoCount = 0
+    let totalBalancas = 0;
+    let confiaveisCount = 0;
+    let totalVariacao = 0;
+    let variacaoCount = 0;
 
     Object.values(data).forEach((entry) => {
       if (entry.balancas) {
         Object.values(entry.balancas).forEach((balance) => {
           const valores = [balance.pontaMar, balance.meio, balance.pontaTerra].filter(
-            (v) => v !== undefined && v !== null && !isNaN(Number(v)),
-          )
+            (v) => v !== undefined && v !== null && !isNaN(Number(v))
+          );
           if (valores.length >= 2) {
-            totalBalancas++
-            const max = Math.max(...valores)
-            const min = Math.min(...valores)
-            const diff = max - min
-            totalVariacao += diff
-            variacaoCount++
+            totalBalancas++;
+            const max = Math.max(...valores);
+            const min = Math.min(...valores);
+            const diff = max - min;
+            totalVariacao += diff;
+            variacaoCount++;
             if (diff <= 40) {
-              confiaveisCount++
+              confiaveisCount++;
             }
           }
-        })
+        });
       }
-    })
+    });
 
-    const percentual = totalBalancas > 0 ? (confiaveisCount / totalBalancas) * 100 : 0
-    const mediaVariacao = variacaoCount > 0 ? totalVariacao / variacaoCount : 0
+    const percentual = totalBalancas > 0 ? (confiaveisCount / totalBalancas) * 100 : 0;
+    const mediaVariacao = variacaoCount > 0 ? totalVariacao / variacaoCount : 0;
 
     setStats({
       total: Object.keys(data).length,
@@ -88,66 +87,95 @@ export function ChartsDashboard() {
       naoConfiaveis: totalBalancas - confiaveisCount,
       percentualConfiavel: percentual,
       variacaoMedia: mediaVariacao,
-    })
-  }
+    });
+  };
 
   useEffect(() => {
     if (Object.keys(entries).length > 0) {
-      createCharts()
+      createCharts();
     }
-  }, [entries, selectedInterval])
+  }, [entries]);
 
-  const createCharts = () => {
-    // Weight Difference Chart
-    if (weightDiffChartRef.current) {
-      const ctx = weightDiffChartRef.current.getContext("2d")
+ const createCharts = () => {
+    // Reliability by Shift Chart (Doughnut)
+    if (reliabilityByShiftChartRef.current) {
+      const ctx = reliabilityByShiftChartRef.current.getContext('2d');
       if (ctx) {
-        if (weightDiffChart.current) {
-          weightDiffChart.current.destroy()
+        if (reliabilityByShiftChart.current) {
+          reliabilityByShiftChart.current.destroy();
         }
 
-        const balanceDiffs = calculateBalanceDifferences()
+        const shiftData = calculateReliabilityByShift();
+        const labels = Object.keys(shiftData);
+        const data = labels.map(label => shiftData[label].confiaveis + shiftData[label].naoConfiaveis);
+        const totalOverallReadings = data.reduce((a, b) => a + b, 0);
 
-        weightDiffChart.current = new Chart(ctx, {
-          type: "bar",
+        reliabilityByShiftChart.current = new Chart(ctx, {
+          type: 'doughnut',
           data: {
-            labels: balanceDiffs.map((d) => `Balança ${d.balanca}`),
+            labels: labels,
             datasets: [
               {
-                label: "Diferença de Peso (kg)",
-                data: balanceDiffs.map((d) => d.diferenca),
-                backgroundColor: "rgba(75, 192, 192, 0.6)",
-                borderColor: "rgba(75, 192, 192, 1)",
-                borderWidth: 1,
+                label: 'Leituras por Turno',
+                data: data,
+                backgroundColor: [
+                  'rgba(75, 192, 192, 0.7)',
+                  'rgba(54, 162, 235, 0.7)',
+                  'rgba(255, 206, 86, 0.7)',
+                  'rgba(255, 99, 132, 0.7)'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2,
               },
             ],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: "Diferença (kg)",
+            cutout: '60%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const label = context.label || '';
+                    const value = context.raw as number;
+                    const percentage = totalOverallReadings > 0 ? ((value / totalOverallReadings) * 100).toFixed(1) : 0;
+                    return ` ${label}: ${value} leituras (${percentage}%)`;
+                  },
+                  afterLabel: function(context) {
+                    const label = context.label;
+                    const shiftInfo = shiftData[label];
+                    if (shiftInfo) {
+                      const total = shiftInfo.confiaveis + shiftInfo.naoConfiaveis;
+                      const reliablePercent = total > 0 ? ((shiftInfo.confiaveis / total) * 100).toFixed(1) : 0;
+                      return [
+                        `\nConfiáveis: ${shiftInfo.confiaveis}`,
+                        `Não Confiáveis: ${shiftInfo.naoConfiaveis}`,
+                        `Taxa de Confiança: ${reliablePercent}%`
+                      ];
+                    }
+                    return [];
+                  }
                 },
               },
             },
           },
-        })
+        });
       }
     }
 
     // Monthly Entries Chart
     if (monthlyEntriesChartRef.current) {
-      const ctx = monthlyEntriesChartRef.current.getContext("2d")
+      const ctx = monthlyEntriesChartRef.current.getContext("2d");
       if (ctx) {
         if (monthlyEntriesChart.current) {
-          monthlyEntriesChart.current.destroy()
+          monthlyEntriesChart.current.destroy();
         }
 
-        const monthlyReliability = calculateMonthlyReliabilityCount()
+        const monthlyReliability = calculateMonthlyReliabilityCount();
 
         monthlyEntriesChart.current = new Chart(ctx, {
           type: "bar",
@@ -185,25 +213,25 @@ export function ChartsDashboard() {
               tooltip: {
                 callbacks: {
                   label: (context) => {
-                    return `Confiabilidades por mês: ${context.parsed.y}`
+                    return `Confiabilidades por mês: ${context.parsed.y}`;
                   },
                 },
               },
             },
           },
-        })
+        });
       }
     }
 
     // Monthly Variations Chart
     if (monthlyVariationsChartRef.current) {
-      const ctx = monthlyVariationsChartRef.current.getContext("2d")
+      const ctx = monthlyVariationsChartRef.current.getContext("2d");
       if (ctx) {
         if (monthlyVariationsChart.current) {
-          monthlyVariationsChart.current.destroy()
+          monthlyVariationsChart.current.destroy();
         }
 
-        const variationsData = calculateMonthlyVariations()
+        const variationsData = calculateMonthlyVariations();
 
         monthlyVariationsChart.current = new Chart(ctx, {
           type: "bar",
@@ -232,94 +260,96 @@ export function ChartsDashboard() {
               },
             },
           },
-        })
+        });
       }
     }
-  }
+  };
 
-  const calculateBalanceDifferences = () => {
-    const balanceDiffs: { balanca: string; diferenca: number }[] = []
-    const balanceAggregates: Record<string, number[]> = {}
+  const calculateReliabilityByShift = () => {
+    const reliabilityByShift: Record<string, { confiaveis: number; naoConfiaveis: number }> = {};
 
     Object.values(entries).forEach((entry) => {
-      Object.entries(entry.balancas || {}).forEach(([balancaId, balancaInfo]) => {
-        const pontaMar = Number.parseFloat(String(balancaInfo.pontaMar)) || 0
-        const meio = Number.parseFloat(String(balancaInfo.meio)) || 0
-        const pontaTerra = Number.parseFloat(String(balancaInfo.pontaTerra)) || 0
+      const turno = entry.turnoAssistente || "N/A"; // Handle missing shift
 
-        const weights = [pontaMar, meio, pontaTerra].filter((w) => w !== 0)
+      if (!reliabilityByShift[turno]) {
+        reliabilityByShift[turno] = { confiaveis: 0, naoConfiaveis: 0 };
+      }
+
+      Object.values(entry.balancas || {}).forEach((balancaInfo) => {
+        const pontaMar = Number.parseFloat(String(balancaInfo.pontaMar)) || 0;
+        const meio = Number.parseFloat(String(balancaInfo.meio)) || 0;
+        const pontaTerra = Number.parseFloat(String(balancaInfo.pontaTerra)) || 0;
+
+        const weights = [pontaMar, meio, pontaTerra].filter((w) => w !== 0);
+
         if (weights.length >= 2) {
-          const diff = Math.max(...weights) - Math.min(...weights)
-          if (!balanceAggregates[balancaId]) {
-            balanceAggregates[balancaId] = []
+          const diff = Math.max(...weights) - Math.min(...weights);
+          if (diff <= 40) {
+            reliabilityByShift[turno].confiaveis++;
+          } else {
+            reliabilityByShift[turno].naoConfiaveis++;
           }
-          balanceAggregates[balancaId].push(diff)
         }
-      })
-    })
+      });
+    });
 
-    Object.entries(balanceAggregates).forEach(([balancaId, diffs]) => {
-      const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length
-      balanceDiffs.push({ balanca: balancaId, diferenca: avgDiff })
-    })
-
-    return balanceDiffs.sort((a, b) => Number.parseInt(a.balanca) - Number.parseInt(b.balanca))
-  }
+    return reliabilityByShift;
+  };
 
   const calculateMonthlyReliabilityCount = () => {
-    const monthlyCount: Record<string, number> = {}
+    const monthlyCount: Record<string, number> = {};
 
     Object.values(entries).forEach((entry) => {
       if (entry.dataHora) {
-        const date = new Date(entry.dataHora)
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        const date = new Date(entry.dataHora);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
         Object.values(entry.balancas || {}).forEach((balancaInfo) => {
-          const pontaMar = Number.parseFloat(String(balancaInfo.pontaMar)) || 0
-          const meio = Number.parseFloat(String(balancaInfo.meio)) || 0
-          const pontaTerra = Number.parseFloat(String(balancaInfo.pontaTerra)) || 0
+          const pontaMar = Number.parseFloat(String(balancaInfo.pontaMar)) || 0;
+          const meio = Number.parseFloat(String(balancaInfo.meio)) || 0;
+          const pontaTerra = Number.parseFloat(String(balancaInfo.pontaTerra)) || 0;
 
-          const weights = [pontaMar, meio, pontaTerra].filter((w) => w !== 0)
+          const weights = [pontaMar, meio, pontaTerra].filter((w) => w !== 0);
 
           if (weights.length >= 2) {
-            const diff = Math.max(...weights) - Math.min(...weights)
+            const diff = Math.max(...weights) - Math.min(...weights);
             if (diff <= 40) {
-              monthlyCount[monthKey] = (monthlyCount[monthKey] || 0) + 1
+              monthlyCount[monthKey] = (monthlyCount[monthKey] || 0) + 1;
             }
           }
-        })
+        });
       }
-    })
+    });
 
-    return monthlyCount
-  }
+    return monthlyCount;
+  };
 
   const calculateMonthlyVariations = () => {
-    const variationsData: Record<string, number> = {}
+    const variationsData: Record<string, number> = {};
 
     Object.values(entries).forEach((entry) => {
       if (entry.dataHora) {
-        const date = new Date(entry.dataHora)
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        const date = new Date(entry.dataHora);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
         Object.values(entry.balancas || {}).forEach((balancaInfo) => {
-          const pontaMar = Number.parseFloat(String(balancaInfo.pontaMar)) || 0
-          const meio = Number.parseFloat(String(balancaInfo.meio)) || 0
-          const pontaTerra = Number.parseFloat(String(balancaInfo.pontaTerra)) || 0
+          const pontaMar = Number.parseFloat(String(balancaInfo.pontaMar)) || 0;
+          const meio = Number.parseFloat(String(balancaInfo.meio)) || 0;
+          const pontaTerra = Number.parseFloat(String(balancaInfo.pontaTerra)) || 0;
 
-          const weights = [pontaMar, meio, pontaTerra].filter((w) => w !== 0)
+          const weights = [pontaMar, meio, pontaTerra].filter((w) => w !== 0);
           if (weights.length >= 2) {
-            const diff = Math.max(...weights) - Math.min(...weights)
+            const diff = Math.max(...weights) - Math.min(...weights);
             if (diff > 40) {
-              variationsData[monthKey] = (variationsData[monthKey] || 0) + 1
+              variationsData[monthKey] = (variationsData[monthKey] || 0) + 1;
             }
           }
-        })
+        });
       }
-    })
+    });
 
-    return variationsData
-  }
+    return variationsData;
+  };
 
   return (
     <div className="space-y-6">
@@ -365,16 +395,14 @@ export function ChartsDashboard() {
         </Card>
       </div>
 
-      
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="bg-white/10 backdrop-blur-md border-white/20">
           <CardHeader>
-            <CardTitle className="text-white">Diferenças de Peso por Balança</CardTitle>
+            <CardTitle className="text-white">Confiabilidade por Turno</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <canvas ref={weightDiffChartRef}></canvas>
+              <canvas ref={reliabilityByShiftChartRef}></canvas>
             </div>
           </CardContent>
         </Card>
@@ -402,5 +430,5 @@ export function ChartsDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

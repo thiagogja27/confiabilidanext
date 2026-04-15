@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { database } from "@/lib/firebase"
 import { ref, onValue, off, remove } from "firebase/database"
 import { Button } from "@/components/ui/button"
@@ -10,16 +11,24 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { ChevronDown, ChevronUp, Trash2, Edit, FileSpreadsheet, ArrowLeft, FileText } from "lucide-react"
 import { EditEntryModal } from "@/components/edit-entry-modal"
-import { ChartsDashboard } from "@/components/charts-dashboard"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
-import { AIAnalyst } from "@/components/ai-analyst" // <-- 1. IMPORTAÇÃO ADICIONADA
+import { AIAnalyst } from "@/components/ai-analyst"
 import { Wrench } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AdjustmentModal } from "@/components/adjustment-modal";
-import { TemporalEvolutionContainer } from "./temporal-evolution-container";
 import { ScaleComparisonChart } from "./scale-comparison-chart"
+
+
+const ChartsDashboard = dynamic(() => import('@/components/charts-dashboard').then(mod => mod.ChartsDashboard), {
+  ssr: false,
+  loading: () => <div className="flex h-48 items-center justify-center rounded-lg bg-gray-100"><p className="text-sm text-gray-500">Carregando gráficos...</p></div>
+});
+const TemporalEvolutionContainer = dynamic(() => import('./temporal-evolution-container').then(mod => mod.TemporalEvolutionContainer), {
+  ssr: false,
+  loading: () => <div className="flex h-48 items-center justify-center rounded-lg bg-gray-100"><p className="text-sm text-gray-500">Carregando evolução temporal...</p></div>
+});
 
 
 export interface BalanceReading {
@@ -27,7 +36,7 @@ export interface BalanceReading {
   meio: number
   pontaTerra: number
   diferenca?: number
-  ajuste?: Adjustment; // <-- Adicione esta linha
+  ajuste?: Adjustment;
 }
 
 export interface Adjustment {
@@ -62,7 +71,7 @@ interface DynamicScaleEntry {
   prefixo: string
   placaVagoes: string
   pesoOrigem: string
-  bitola: "Estreita" | "Larga" // <-- Nova propriedade
+  bitola: "Estreita" | "Larga"
   primeiraPassagemR300B: string
   segundaPassagemR300C: string
   terceiraPassagemR300B: string
@@ -96,9 +105,6 @@ function calculateSpecificDifferences(entry: WeighingEntry) {
   }[] = [];
   const balancas = entry.balancas;
 
-  // CORREÇÃO:
-  // Converte os tipos de veículo para minúsculas antes de comparar.
-  // Garante que a comparação funcione independentemente de como o dado foi salvo.
   if (
     !balancas ||
     ((entry.tipoVeiculo?.toLowerCase() ?? "") !== 'vagao' &&
@@ -114,7 +120,6 @@ function calculateSpecificDifferences(entry: WeighingEntry) {
   ];
 
   pairs.forEach(([balancaA, balancaB]) => {
-    // Considera valores ajustados na comparação, se existirem
     const balancaAData = balancas[balancaA]?.ajuste || balancas[balancaA];
     const balancaBData = balancas[balancaB]?.ajuste || balancas[balancaB];
 
@@ -148,11 +153,9 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
   const [searchPlaca, setSearchPlaca] = useState("")
   const [editingEntry, setEditingEntry] = useState<WeighingEntry | null>(null)
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set())
-    // --- ESTADOS PARA O MODAL DE AJUSTE ---
     const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
     const [adjustingEntry, setAdjustingEntry] = useState<WeighingEntry | null>(null);
     const [adjustingBalancaId, setAdjustingBalancaId] = useState<string | null>(null);
-    // ------------------------------------
   
     const handleOpenAdjustmentModal = (entry: WeighingEntry, balancaId: string) => {
       setAdjustingEntry(entry);
@@ -162,7 +165,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
   
     const handleCloseAdjustmentModal = () => {
       setIsAdjustmentModalOpen(false);
-      // Delay para evitar piscar de dados antigos
       setTimeout(() => {
         setAdjustingEntry(null);
         setAdjustingBalancaId(null);
@@ -186,7 +188,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
           key,
           ...value,
         }))
-        // Sort by date descending
         entriesArray.sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime())
         setEntries(entriesArray)
       } else {
@@ -228,18 +229,15 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
     if (searchPlaca) {
       const searchUpper = searchPlaca.toUpperCase()
       filtered = filtered.filter((entry) => {
-        // Busca pela placa principal ou secundária
         const placaMatch =
           (entry.placa || "").toUpperCase().includes(searchUpper) ||
           (entry.placa2 || "").toUpperCase().includes(searchUpper)
     
-        // Busca pelo prefixo dentro da Aferição da Balança Dinâmica
         const prefixoMatch =
           entry.afericaoBalancaDinamica?.some((vagao) =>
             (vagao.prefixo || "").toUpperCase().includes(searchUpper)
           ) || false
           
-        // Busca pelo nome do Assistente  
         const assistenteMatch = 
           (entry.nomeAssistente || "").toUpperCase().includes(searchUpper)
     
@@ -355,7 +353,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
   }
 
   const calculateDiferenca = (balance: BalanceReading) => {
-    // Usa valores ajustados se existirem, caso contrário, usa os originais.
     const valuesToUse = balance.ajuste || balance;
     const valores = [valuesToUse.pontaMar, valuesToUse.meio, valuesToUse.pontaTerra].filter(
         (v): v is number => v !== undefined && v !== null && !isNaN(v)
@@ -375,7 +372,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
   const exportToExcel = () => {
     const entriesToExport = getEntriesToExport()
 
-    // Arrays para cada aba da planilha
     const pesagensData: any[] = []
     const checklistData: any[] = []
     const balancaDinamicaData: any[] = []
@@ -395,30 +391,23 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         Seguranca: entry.nomeSeguranca || "N/A",
       }
 
-      // 1. Coleta de dados de Pesagens (AJUSTADO PARA INCLUIR AJUSTES)
       if (entry.balancas && Object.keys(entry.balancas).length > 0) {
         Object.entries(entry.balancas).forEach(([balancaName, bal]) => {
           const finalValues = bal.ajuste || bal;
-          const diferenca = calculateDiferenca(bal); // Usa a nova função
-          const temAjuste = !!bal.ajuste;
-
-    
-
+          const diferenca = calculateDiferenca(bal);
+          
           pesagensData.push({
             ...baseInfo,
             Balanca: `Balança ${balancaName}`,
-            // Valores Finais (Ajustados ou Originais)
             PontaMar_Final: finalValues.pontaMar || 0,
             Meio_Final: finalValues.meio || 0,
             PontaTerra_Final: finalValues.pontaTerra || 0,
             Diferenca: diferenca,
             Status: diferenca <= 40 ? "Confiável" : "ALERTA",
-            // Detalhes do Ajuste (CORRIGIDO)
             Ajustado: bal.ajuste ? "Sim" : "Não",
             DataAjuste: bal.ajuste ? (bal.ajuste.dataAjuste ? new Date(bal.ajuste.dataAjuste).toLocaleString('pt-BR') : "") : "",
             AjustadoPor: bal.ajuste ? bal.ajuste.ajustadoPor : "",
             ObservacoesAjuste: bal.ajuste ? bal.ajuste.observacoes : "",
-            // Valores Originais (para referência se houve ajuste)
             PontaMar_Original: bal.ajuste ? (bal.pontaMar || 0) : "",
             Meio_Original: bal.ajuste ? (bal.meio || 0) : "",
             PontaTerra_Original: bal.ajuste ? (bal.pontaTerra || 0) : "",
@@ -428,8 +417,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         pesagensData.push({ ...baseInfo, Balanca: "-", PontaMar_Final: 0, Meio_Final: 0, PontaTerra_Final: 0, Diferenca: 0, Status: "-" })
       }
 
-
-      // 2. Coleta de dados do Checklist (sem alteração)
       checklistData.push({
         DataHora: entry.dataHora,
         Placa: entry.placa,
@@ -443,7 +430,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         Observacoes: entry.checklist?.observacoes || "",
       })
       
-      // 3. Coleta de dados da Balança Dinâmica (sem alteração)
       if (entry.afericaoBalancaDinamica && entry.afericaoBalancaDinamica.length > 0) {
         entry.afericaoBalancaDinamica.forEach((vagao, index) => {
           balancaDinamicaData.push({
@@ -464,7 +450,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         balancaDinamicaData.push({})
       }
     
-      // 4. Coleta de dados do Teste Estático (sem alteração)
       if (entry.testeEstatico && Object.keys(entry.testeEstatico).length > 0) {
         Object.entries(entry.testeEstatico).forEach(([balancaName, teste]) => {
           testeEstaticoData.push({
@@ -478,7 +463,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
         })
       }
 
-      // 5. Coleta de dados das Diferenças Específicas (sem alteração)
       const specificDiffs = calculateSpecificDifferences(entry);
       if (specificDiffs.length > 0) {
         specificDiffs.forEach((diff) => {
@@ -494,10 +478,8 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       }
     })
 
-    // Criação do Workbook
     const wb = XLSX.utils.book_new()
 
-    // Aba 1: Pesagens (LARGURA DAS COLUNAS AJUSTADA)
     const ws1 = XLSX.utils.json_to_sheet(pesagensData)
     ws1["!cols"] = [ 
         { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, 
@@ -507,27 +489,22 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
     ]
     XLSX.utils.book_append_sheet(wb, ws1, "Pesagens")
 
-    // Aba 2: Checklist (sem alteração)
     const ws2 = XLSX.utils.json_to_sheet(checklistData)
     ws2["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 30 } ]
     XLSX.utils.book_append_sheet(wb, ws2, "Checklist")
 
-    // Aba 3: Balança Dinâmica (sem alteração)
     const ws3 = XLSX.utils.json_to_sheet(balancaDinamicaData)
     ws3["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 } ]
     XLSX.utils.book_append_sheet(wb, ws3, "Balança Dinâmica")
     
-    // Aba 4: Teste Estático (sem alteração)
     const ws4 = XLSX.utils.json_to_sheet(testeEstaticoData)
     ws4["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 12 } ]
     XLSX.utils.book_append_sheet(wb, ws4, "Teste Estático")
 
-    // Aba 5: Diferenças Específicas (sem alteração)
     const ws5 = XLSX.utils.json_to_sheet(diferencasEspecificasData)
     ws5["!cols"] = [ { wch: 18 }, { wch: 10 }, { wch: 18 }, { wch: 25 }, { wch: 22 }, { wch: 26 } ]
     XLSX.utils.book_append_sheet(wb, ws5, "Diferenças Específicas")
 
-    // Salva o arquivo final
     XLSX.writeFile(wb, `confiabilidade_${new Date().toISOString().split("T")[0]}.xlsx`)
   }
     
@@ -543,7 +520,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
 
     const doc = new jsPDF({ orientation: "landscape" })
 
-    // --- Página 1: Cabeçalho e Tabela DETALHADA de Pesagens ---
     doc.setFontSize(18)
     doc.text("Relatório de Confiabilidade", 14, 20)
     doc.setFontSize(10)
@@ -559,8 +535,8 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
             entry.dataHora,
             entry.placa,
             entry.placa2 || "N/A",
-            entry.nomeAssistente, // <-- COLUNA ADICIONADA
-            entry.turnoAssistente,  // <-- COLUNA ADICIONADA
+            entry.nomeAssistente,
+            entry.turnoAssistente,
             balancaName,
             bal.pontaMar || 0,
             bal.meio || 0,
@@ -583,7 +559,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       headStyles: { fillColor: [41, 128, 185] },
     })
 
-    // --- Página 2: Checklist ---
     const checklistData: any[] = []
     entriesToExport.forEach((entry) => {
       if (entry.checklist) {
@@ -617,7 +592,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       })
     }
 
-    // --- Página 3: Balança Dinâmica (se houver dados) ---
     const dinamicaData: any[] = []
     entriesToExport.forEach((entry) => {
       if (entry.afericaoBalancaDinamica && entry.afericaoBalancaDinamica.length > 0) {
@@ -647,7 +621,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       })
     }
 
-    // --- Página 4: Teste Estático (se houver dados) ---
     const testeEstaticoData: any[] = []
     entriesToExport.forEach((entry) => {
       if (entry.testeEstatico && Object.keys(entry.testeEstatico).length > 0) {
@@ -675,7 +648,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       })
     }
 
-    // --- Página 5: Diferenças Específicas (se houver dados) ---
     const diferencasData: any[] = []
     entriesToExport.forEach((entry) => {
       const specificDiffs = calculateSpecificDifferences(entry)
@@ -703,7 +675,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       })
     }
 
-    // --- Salva o arquivo PDF ---
     doc.save(`confiabilidade_${new Date().toISOString().split("T")[0]}.pdf`)
   }
 
@@ -906,14 +877,12 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
 
 {/* Diferenças Específicas */}
 {(() => {
-  // Só prossiga se houver balanças neste registro
   if (!entry.balancas || Object.keys(entry.balancas).length === 0) {
     return null;
   }
 
   const specificDiffs = calculateSpecificDifferences(entry);
 
-  // Se houver diferenças específicas calculadas, exiba os cards
   if (specificDiffs.length > 0) {
     return (
       <div>
@@ -949,7 +918,6 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
     );
   }
 
-  // Se não houver diferenças, exiba a mensagem informativa
   return (
     <div>
       <h4 className="font-semibold mb-2">Diferenças Específicas entre Balanças</h4>
@@ -1034,9 +1002,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
                             </thead>
                             <tbody>
                             {Object.entries(entry.testeEstatico).map(([balanca, teste]: [string, any]) => {
-                      // Pega o valor da porcentagem, não importa o nome da propriedade
                       const percentual = teste.percentualVariacao || teste.variacaoPercentual;
-                      // Extrai o valor numérico para a lógica da cor
                       const percentualValue = parseFloat(percentual || "0");
                       const variacaoPesoValue = parseFloat(teste.variacaoPeso || "0");
 
@@ -1087,7 +1053,7 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
                                   <td className="border p-2 text-center">{index + 1}</td>
                                   <td className="border p-2">{vagao.prefixo || "-"}</td>
                                   <td className="border p-2 capitalize">
-                                    {vagao.bitola || "-"} {/* <--- ESSA LINHA SERÁ ADICIONADA/CORRIGIDA */}
+                                    {vagao.bitola || "-"}
                                   </td>
                                   <td className="border p-2">{vagao.placaVagoes || "-"}</td>
                                   <td className="border p-2 text-center">{vagao.pesoOrigem || "-"}</td>
@@ -1140,8 +1106,8 @@ export function AdvancedDashboard({ onBack }: { onBack: () => void }) {
       {editingEntry && (
   <EditEntryModal
     entry={editingEntry}
-    onClose={() => setEditingEntry(null)} // Mantenha esta linha
-    onSave={() => setEditingEntry(null)}   // Adicione esta linha
+    onClose={() => setEditingEntry(null)}
+    onSave={() => setEditingEntry(null)}
   />
 )}
 

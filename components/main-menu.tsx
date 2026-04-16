@@ -42,10 +42,6 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
     }
   }, [])
 
-  const simulateWeights = () => {
-    alert("Função de simulação de pesos - implementar lógica de teste")
-  }
-
   const handleClearAllNotifications = async () => {
     if (confirm("Deseja realmente apagar todas as notificações?")) {
       const notificationsRef = ref(database, "dashboardNotifications")
@@ -93,10 +89,6 @@ export function MainMenu({ onLogout, onShowDashboard, onSaveData, showDashboard 
                 <div className="container mx-auto flex flex-wrap gap-2 px-4 py-4">
                   {!showDashboard && (
                     <>
-                      <Button variant="outline" size="sm" onClick={simulateWeights}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Simular Pesos
-                      </Button>
                       <Button variant="outline" size="sm" onClick={() => onSaveData()}>
                         <Save className="mr-2 h-4 w-4" />
                         Salvar Dados
